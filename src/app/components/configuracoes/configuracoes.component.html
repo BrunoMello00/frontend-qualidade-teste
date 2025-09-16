@@ -1,0 +1,382 @@
+<div class="configuracoes-container">
+  <div class="container-fluid py-4">
+    
+    <!-- Header da página -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="mb-1">
+              <i class="bi bi-gear me-2 text-warning"></i>
+              Configurações
+            </h2>
+            <p class="text-muted mb-0">Personalize sua experiência no sistema</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensagens de feedback -->
+    <div class="row mb-3" *ngIf="successMessage || errorMessage">
+      <div class="col-12">
+        <div class="alert alert-success alert-dismissible fade show" *ngIf="successMessage" role="alert">
+          <i class="bi bi-check-circle me-2"></i>
+          {{ successMessage }}
+        </div>
+        
+        <div class="alert alert-danger alert-dismissible fade show" *ngIf="errorMessage" role="alert">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ errorMessage }}
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Menu lateral de navegação -->
+      <div class="col-lg-3 col-xl-2 mb-4">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-orange text-white">
+            <h6 class="mb-0">
+              <i class="bi bi-list me-2"></i>
+              Categorias
+            </h6>
+          </div>
+          <div class="list-group list-group-flush">
+            <button 
+              type="button"
+              class="list-group-item list-group-item-action border-0"
+              [class.active]="activeTab === 'geral'"
+              (click)="setActiveTab('geral')">
+              <i class="bi bi-sliders me-2"></i>
+              Geral
+            </button>
+            <button 
+              type="button"
+              class="list-group-item list-group-item-action border-0"
+              [class.active]="activeTab === 'seguranca'"
+              (click)="setActiveTab('seguranca')">
+              <i class="bi bi-shield-lock me-2"></i>
+              Segurança
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo principal -->
+      <div class="col-lg-9 col-xl-10">
+        
+        <!-- Tab: Configurações Gerais -->
+        <div *ngIf="activeTab === 'geral'" class="fade-in">
+          <div class="card shadow-sm border-0">
+            <div class="card-header bg-orange text-white">
+              <h5 class="mb-0">
+                <i class="bi bi-sliders me-2"></i>
+                Configurações Gerais
+              </h5>
+            </div>
+            <div class="card-body p-4 bg-light">
+              <form [formGroup]="configForm" (ngSubmit)="onConfigSubmit()">
+                
+                <div class="row">
+                  <!-- Timeout de sessão -->
+                  <div class="col-md-6 mb-3">
+                    <label for="sessaoTimeout" class="form-label">
+                      <i class="bi bi-clock me-1"></i>
+                      Timeout da Sessão (minutos)
+                    </label>
+                    <select class="form-select" id="sessaoTimeout" formControlName="sessaoTimeout">
+                      <option value="5">5 minutos</option>
+                      <option value="15">15 minutos</option>
+                      <option value="30">30 minutos</option>
+                      <option value="60">1 hora</option>
+                      <option value="120">2 horas</option>
+                    </select>
+                  </div>
+
+                  <!-- Manter logado -->
+                  <div class="col-md-6 mb-3 d-flex align-items-end">
+                    <div class="form-check">
+                      <input 
+                        class="form-check-input" 
+                        type="checkbox" 
+                        id="manterLogado" 
+                        formControlName="manterLogado">
+                      <label class="form-check-label" for="manterLogado">
+                        <i class="bi bi-lock me-1"></i>
+                        Manter-me conectado
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Botão salvar -->
+                <div class="d-flex justify-content-between align-items-center">
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-danger"
+                    (click)="resetConfigurations()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>
+                    Restaurar Configurações Padrão
+                  </button>
+                  
+                  <button 
+                    type="submit" 
+                    class="btn btn-primary"
+                    [disabled]="configForm.invalid || isLoading">
+                    <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <i *ngIf="!isLoading" class="bi bi-check-circle me-2"></i>
+                    {{ isLoading ? 'Salvando...' : 'Salvar Configurações' }}
+                  </button>
+                </div>
+
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Segurança -->
+        <div *ngIf="activeTab === 'seguranca'" class="fade-in">
+          <div class="card shadow-sm border-0">
+            <div class="card-header bg-orange text-white">
+              <h5 class="mb-0">
+                <i class="bi bi-shield-lock me-2"></i>
+                Configurações de Segurança
+              </h5>
+            </div>
+            <div class="card-body p-4 bg-light">
+              
+              <!-- Status do MFA -->
+              <div class="row mb-4">
+                <div class="col-12">
+                  <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                    <div>
+                      <h6 class="mb-1">
+                        <i class="bi bi-shield-check me-2"></i>
+                        Autenticação Multifator (MFA)
+                      </h6>
+                      <small class="text-muted">
+                        {{ mfaConfig.enabled ? 'Ativada via ' + (mfaConfig.method === 'email' ? 'Email' : 'SMS') : 'Desativada' }}
+                      </small>
+                    </div>
+                    <div>
+                      <span class="badge" [class]="mfaConfig.enabled ? 'bg-success' : 'bg-secondary'">
+                        {{ mfaConfig.enabled ? 'Ativada' : 'Desativada' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Controles do MFA -->
+              <div class="row" *ngIf="!showMfaSetup">
+                <div class="col-12">
+                  <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    <button 
+                      *ngIf="!mfaConfig.enabled"
+                      type="button" 
+                      class="btn btn-primary"
+                      (click)="startMfaSetup()">
+                      <i class="bi bi-plus-circle me-2"></i>
+                      Configurar MFA
+                    </button>
+                    
+                    <button 
+                      *ngIf="mfaConfig.enabled"
+                      type="button" 
+                      class="btn btn-outline-secondary me-2"
+                      (click)="startMfaSetup()">
+                      <i class="bi bi-gear me-2"></i>
+                      Reconfigurar MFA
+                    </button>
+                    
+                    <button 
+                      *ngIf="mfaConfig.enabled"
+                      type="button" 
+                      class="btn btn-outline-danger"
+                      (click)="disableMfa()">
+                      <i class="bi bi-x-circle me-2"></i>
+                      Desativar MFA
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Setup do MFA -->
+              <div *ngIf="showMfaSetup" class="mfa-setup">
+                <div class="text-center mb-4">
+                  <h5>Configurar Autenticação Multifator</h5>
+                  <p class="text-muted">Escolha como você deseja receber os códigos de verificação</p>
+                </div>
+
+                <!-- Passo 1: Escolher método -->
+                <div *ngIf="mfaStep === 1">
+                  <form [formGroup]="mfaForm">
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <div class="method-card card h-100" (click)="selectMfaMethod('email')">
+                          <div class="card-body text-center">
+                            <i class="bi bi-envelope display-4 text-primary mb-3"></i>
+                            <h6>Email</h6>
+                            <p class="text-muted small">Receba códigos por email</p>
+                            <div class="form-check">
+                              <input 
+                                class="form-check-input" 
+                                type="radio" 
+                                name="mfaMethod" 
+                                id="emailMethod"
+                                value="email"
+                                formControlName="method">
+                              <label class="form-check-label" for="emailMethod">
+                                Usar Email
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-md-6 mb-3">
+                        <div class="method-card card h-100" (click)="selectMfaMethod('sms')">
+                          <div class="card-body text-center">
+                            <i class="bi bi-phone display-4 text-success mb-3"></i>
+                            <h6>SMS</h6>
+                            <p class="text-muted small">Receba códigos por SMS</p>
+                            <div class="form-check">
+                              <input 
+                                class="form-check-input" 
+                                type="radio" 
+                                name="mfaMethod" 
+                                id="smsMethod"
+                                value="sms"
+                                formControlName="method">
+                              <label class="form-check-label" for="smsMethod">
+                                Usar SMS
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-secondary me-3"
+                        (click)="cancelMfaSetup()">
+                        Cancelar
+                      </button>
+                      
+                      <button 
+                        type="button" 
+                        class="btn btn-primary"
+                        [disabled]="!mfaForm.get('method')?.value"
+                        (click)="goToMfaStep(2)">
+                        Continuar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <!-- Passo 2: Configurar dados -->
+                <div *ngIf="mfaStep === 2">
+                  <form [formGroup]="mfaForm" (ngSubmit)="configureMfa()">
+                    <div class="text-center mb-4">
+                      <h6>Configure seu {{ mfaForm.get('method')?.value === 'email' ? 'Email' : 'Telefone' }}</h6>
+                    </div>
+
+                    <!-- Email -->
+                    <div *ngIf="mfaForm.get('method')?.value === 'email'" class="mb-3">
+                      <label for="mfaEmail" class="form-label">Email para MFA:</label>
+                      <input 
+                        type="email" 
+                        class="form-control" 
+                        id="mfaEmail"
+                        formControlName="email"
+                        placeholder="Digite seu email">
+                    </div>
+
+                    <!-- Telefone -->
+                    <div *ngIf="mfaForm.get('method')?.value === 'sms'" class="mb-3">
+                      <label for="mfaPhone" class="form-label">Telefone para MFA:</label>
+                      <input 
+                        type="tel" 
+                        class="form-control" 
+                        id="mfaPhone"
+                        formControlName="phone"
+                        (input)="onPhoneInput($event)"
+                        placeholder="(11) 99999-9999"
+                        maxlength="15">
+                    </div>
+
+                    <div class="text-center">
+                      <button 
+                        type="submit" 
+                        class="btn btn-primary me-2"
+                        [disabled]="isLoading">
+                        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        {{ isLoading ? 'Enviando...' : 'Enviar Código' }}
+                      </button>
+                      
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-secondary"
+                        (click)="cancelMfaSetup()">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <!-- Passo 3: Verificar código -->
+                <div *ngIf="mfaStep === 3">
+                  <div class="text-center mb-4">
+                    <h6>Digite o código de verificação</h6>
+                    <p class="text-muted">Enviado para {{ getMfaDestination() }}</p>
+                    <small class="text-info">Para demonstração, use o código: <strong>123456</strong></small>
+                  </div>
+
+                  <form [formGroup]="mfaForm" (ngSubmit)="verifyMfaCode()">
+                    <div class="mb-3">
+                      <input 
+                        type="text" 
+                        class="form-control text-center" 
+                        [class.is-invalid]="mfaForm.get('verificationCode')?.invalid && mfaForm.get('verificationCode')?.touched"
+                        formControlName="verificationCode"
+                        placeholder="000000"
+                        maxlength="6"
+                        style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                      <div class="invalid-feedback text-center" 
+                           *ngIf="mfaForm.get('verificationCode')?.invalid && mfaForm.get('verificationCode')?.touched">
+                        Digite um código de 6 dígitos válido.
+                      </div>
+                    </div>
+
+                    <div class="text-center">
+                      <button 
+                        type="submit" 
+                        class="btn btn-success me-2"
+                        [disabled]="isLoading">
+                        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        {{ isLoading ? 'Verificando...' : 'Verificar Código' }}
+                      </button>
+                      
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-secondary"
+                        (click)="cancelMfaSetup()">
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>

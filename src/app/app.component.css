@@ -1,0 +1,427 @@
+/* Layout principal */
+.app-container {
+  min-height: 100vh;
+}
+
+/* Navbar customizada */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  z-index: 1030;
+  min-height: 60px !important;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  overflow: visible !important;
+}
+
+/* Container fluid responsivo */
+.navbar .container-fluid {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  max-width: 100%;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-brand {
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+  min-height: 44px !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.navbar-brand i {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+/* Correção para toggler button */
+.navbar-toggler {
+  padding: 0.375rem 0.5rem !important;
+  font-size: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.375rem;
+  min-height: 40px !important;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
+}
+
+/* Collapse responsivo */
+.navbar-collapse {
+  flex-basis: 100%;
+  flex-grow: 1;
+  align-items: center;
+  overflow: visible !important;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Navigation links com área clicável otimizada */
+.navbar-nav {
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: visible;
+  justify-content: flex-start;
+}
+
+/* Navbar nav específico para menu da esquerda */
+.navbar-nav.me-auto {
+  flex-grow: 1;
+  max-width: calc(100% - 200px); /* Reserva espaço para menu do usuário */
+}
+
+/* Navbar nav específico para menu da direita */
+.navbar-nav.ms-auto {
+  flex-grow: 0;
+  flex-shrink: 0;
+  margin-left: auto !important;
+  justify-self: flex-end;
+}
+
+/* Forçar alinhamento à direita do dropdown do usuário */
+.navbar-nav.ms-auto .nav-item.dropdown {
+  margin-left: auto;
+}
+
+.navbar-nav .nav-link {
+  color: rgba(255, 255, 255, 0.9) !important;
+  padding: 0.5rem 1rem !important;
+  margin: 0.125rem 0 !important;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 40px !important;
+  white-space: nowrap;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.navbar-nav .nav-link:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.navbar-nav .nav-link.active {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.navbar-nav .nav-link i {
+  font-size: 1rem;
+  margin-right: 0.5rem !important;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Correção específica para área clicável */
+.navbar-nav .nav-item {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.navbar-nav .nav-item .nav-link {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Dropdown customizado */
+.dropdown-menu {
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  margin-top: 0.25rem;
+  min-width: 200px;
+  z-index: 1050 !important;
+  position: absolute !important;
+  /* Posicionamento inteligente para evitar corte */
+  transform: none !important;
+}
+
+/* Posicionamento do dropdown para evitar corte */
+.nav-item.dropdown {
+  position: relative;
+}
+
+/* Posicionamento específico por item no navbar */
+.navbar-nav .nav-item.dropdown:nth-last-child(-n+2) .dropdown-menu {
+  /* Para os últimos 2 itens, alinhar à direita */
+  right: 0 !important;
+  left: auto !important;
+}
+
+.navbar-nav .nav-item.dropdown:not(:nth-last-child(-n+2)) .dropdown-menu {
+  /* Para os primeiros itens, alinhar à esquerda */
+  left: 0 !important;
+  right: auto !important;
+}
+
+.dropdown-menu.show {
+  display: block !important;
+  /* Garante que sempre apareça na tela */
+  max-width: calc(100vw - 2rem);
+  overflow-x: visible;
+}
+
+/* Media query para telas pequenas */
+@media (max-width: 576px) {
+  .dropdown-menu {
+    right: -1rem !important;
+    min-width: 160px;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  /* Menu do usuário sempre à direita em mobile */
+  .navbar-nav.ms-auto .dropdown-menu {
+    right: 0 !important;
+    left: auto !important;
+  }
+}
+
+.dropdown-item {
+  padding: 0.5rem 1rem !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex !important;
+  align-items: center !important;
+  min-height: 40px !important;
+  text-decoration: none !important;
+  line-height: 1.2 !important;
+  font-size: 0.9rem;
+}
+
+.dropdown-item:hover {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+  color: var(--bs-primary) !important;
+  transform: translateX(5px);
+}
+
+.dropdown-item:focus {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+  color: var(--bs-primary) !important;
+}
+
+.dropdown-item i {
+  width: 16px;
+  text-align: center;
+  margin-right: 0.5rem !important;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* Correção para dropdown toggle */
+.navbar-nav .dropdown-toggle {
+  padding: 0.5rem 1rem !important;
+  min-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.dropdown-divider {
+  margin: 0.375rem 0;
+}
+
+/* Conteúdo principal */
+.main-content {
+  margin-top: 65px; /* Altura ajustada para navbar mais compacta */
+  padding: 1.5rem 0;
+  min-height: calc(100vh - 65px);
+  background-color: #f8f9fa;
+}
+
+/* Quando não há navbar (tela de login) */
+.main-content.full-height {
+  margin-top: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Responsividade melhorada */
+@media (max-width: 1400px) {
+  /* Para telas grandes mas com muitos itens */
+  .navbar-nav .nav-link {
+    padding: 0.5rem 0.875rem !important;
+    font-size: 0.9rem;
+  }
+  
+  .navbar-nav .nav-link i {
+    font-size: 0.9rem;
+    margin-right: 0.375rem !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  /* Para telas médias - links menores */
+  .navbar-nav .nav-link {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem;
+  }
+  
+  .navbar-nav .nav-link i {
+    font-size: 0.85rem;
+    margin-right: 0.375rem !important;
+  }
+  
+  .navbar-brand {
+    font-size: 1.2rem;
+  }
+  
+  .dropdown-menu {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 1024px) {
+  /* Para tablets em landscape */
+  .navbar-nav .nav-link {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.8rem;
+  }
+  
+  .navbar-nav .nav-link i {
+    font-size: 0.8rem;
+    margin-right: 0.3rem !important;
+  }
+  
+  .navbar-nav.me-auto {
+    max-width: calc(100% - 150px);
+  }
+  
+  .dropdown-menu {
+    min-width: 160px;
+  }
+}
+
+@media (min-width: 993px) {
+  /* Desktop - garantir que o menu do usuário fique na direita */
+  .navbar-nav.ms-auto {
+    margin-left: auto !important;
+  }
+  
+  .navbar-collapse {
+    display: flex !important;
+    justify-content: space-between !important;
+  }
+}
+
+@media (max-width: 992px) {
+  /* Navbar colapsa em modo vertical */
+  .navbar-nav {
+    flex-direction: column !important;
+    width: 100%;
+    gap: 0;
+    padding-top: 0.5rem;
+  }
+
+  .navbar-nav .nav-link {
+    margin: 0;
+    padding: 0.875rem 1rem !important;
+    border-radius: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 48px !important;
+    justify-content: flex-start !important;
+    width: 100%;
+    font-size: 1rem;
+  }
+  
+  .navbar-nav .nav-link:last-child {
+    border-bottom: none;
+  }
+  
+  .navbar-nav .dropdown-toggle {
+    padding: 0.875rem 1rem !important;
+    min-height: 48px !important;
+  }
+
+  /* Dropdown em mobile - posicionamento correto */
+  .dropdown-menu {
+    position: static !important;
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 0;
+    margin: 0;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    right: auto !important;
+    left: auto !important;
+    transform: none !important;
+  }
+  
+  /* Sobrescrever posicionamento específico em mobile */
+  .navbar-nav .nav-item.dropdown .dropdown-menu {
+    right: auto !important;
+    left: auto !important;
+  }
+  
+  .main-content {
+    margin-top: 65px;
+    padding: 1rem 0;
+    min-height: calc(100vh - 65px);
+  }
+  
+  .dropdown-item {
+    padding: 0.875rem 1rem !important;
+    min-height: 48px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .navbar {
+    min-height: 56px !important;
+  }
+
+  .navbar-brand {
+    font-size: 1.1rem;
+    padding: 0.375rem 0.5rem !important;
+  }
+  
+  .navbar-brand i {
+    font-size: 1.2rem;
+  }
+  
+  .navbar-nav .nav-link {
+    font-size: 0.95rem;
+    padding: 0.75rem 0.875rem !important;
+    min-height: 44px !important;
+  }
+  
+  .navbar-nav .nav-link i {
+    font-size: 1rem;
+    margin-right: 0.75rem !important;
+  }
+  
+  .navbar-toggler {
+    padding: 0.25rem 0.375rem !important;
+    min-height: 36px !important;
+    font-size: 1rem;
+  }
+
+  /* Dropdown compacto em telas muito pequenas */
+  .dropdown-item {
+    padding: 0.625rem 0.875rem !important;
+    min-height: 44px !important;
+    font-size: 0.9rem;
+  }
+
+  .main-content {
+    margin-top: 60px;
+    min-height: calc(100vh - 60px);
+  }
+}

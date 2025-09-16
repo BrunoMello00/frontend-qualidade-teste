@@ -1,0 +1,44 @@
+/* Estilos específicos do Dashboard usando Bootstrap */
+
+/* Customizações mínimas para complementar o Bootstrap */
+.border-left-primary {
+  border-left: 4px solid var(--primary-orange) !important;
+}
+
+/* Hover effects para cards de estatísticas */
+.shadow-hover:hover {
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Estilos para boxes clicáveis */
+.filter-box {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-box:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.filter-box:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.25) !important;
+}
+
+/* Ajustes para os botões de ação rápida */
+.btn-custom.h-100 {
+  min-height: 120px;
+}
+
+/* Responsividade específica */
+@media (max-width: 768px) {
+  .btn-custom.h-100 {
+    min-height: 80px;
+  }
+  
+  .display-6 {
+    font-size: 2rem !important;
+  }
+}

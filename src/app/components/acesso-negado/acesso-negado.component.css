@@ -1,0 +1,23 @@
+.card {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border: none;
+  border-left: 4px solid var(--bs-warning);
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.btn {
+  min-width: 140px;
+}
+
+@media (max-width: 576px) {
+  .d-flex.flex-column.flex-sm-row {
+    flex-direction: column !important;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+}

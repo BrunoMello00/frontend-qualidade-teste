@@ -1,0 +1,455 @@
+/* Bootstrap e ícones */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+/* Sistema de Gestão de Estoque - Tema Laranja e Branco */
+
+/* Variáveis de cores personalizadas */
+:root {
+  --bs-primary: #FF6B35;
+  --bs-primary-rgb: 255, 107, 53;
+  --bs-secondary: #6C757D;
+  --bs-success: #28A745;
+  --bs-info: #17A2B8;
+  --bs-warning: #FFC107;
+  --bs-danger: #DC3545;
+  --bs-light: #F8F9FA;
+  --bs-dark: #495057;
+  
+  /* Cores customizadas do tema */
+  --primary-orange: #FF6B35;
+  --light-orange: #FF8A50;
+  --dark-orange: #E55A2B;
+  --accent-orange: #FFB085;
+  --white: #FFFFFF;
+  --light-gray: #F8F9FA;
+  --gray: #6C757D;
+  --dark-gray: #495057;
+}
+
+/* Override das cores do Bootstrap */
+.btn-primary {
+  --bs-btn-bg: var(--primary-orange);
+  --bs-btn-border-color: var(--primary-orange);
+  --bs-btn-hover-bg: var(--dark-orange);
+  --bs-btn-hover-border-color: var(--dark-orange);
+  --bs-btn-active-bg: var(--dark-orange);
+  --bs-btn-active-border-color: var(--dark-orange);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--primary-orange);
+  --bs-btn-border-color: var(--primary-orange);
+  --bs-btn-hover-bg: var(--primary-orange);
+  --bs-btn-hover-border-color: var(--primary-orange);
+  --bs-btn-active-bg: var(--primary-orange);
+  --bs-btn-active-border-color: var(--primary-orange);
+}
+
+.text-primary {
+  color: var(--primary-orange) !important;
+}
+
+.bg-primary {
+  background-color: var(--primary-orange) !important;
+}
+
+.border-primary {
+  border-color: var(--primary-orange) !important;
+}
+
+.btn-outline-primary:hover {
+  color: var(--white) !important;
+}
+
+html, body { 
+  height: 100%; 
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--light-gray);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Estilos customizados complementares ao Bootstrap */
+
+/* Gradientes personalizados */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--primary-orange), var(--light-orange)) !important;
+}
+
+.bg-gradient-light {
+  background: linear-gradient(135deg, var(--light-gray) 0%, #E8F4F8 100%) !important;
+}
+
+/* Cards personalizados */
+.card-custom {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(255, 107, 53, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-custom:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.15);
+}
+
+.card-custom.border-left-primary {
+  border-left: 4px solid var(--primary-orange) !important;
+}
+
+/* Botões customizados */
+.btn-custom {
+  border-radius: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 24px;
+  transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+  transform: translateY(-2px);
+}
+
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Inputs personalizados */
+.form-control-custom {
+  border-radius: 12px;
+  border: 2px solid #E9ECEF;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.form-control-custom:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+}
+
+/* Status badges personalizados */
+.badge-low-stock {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: var(--bs-danger);
+  border: 1px solid var(--bs-danger);
+}
+
+.badge-in-stock {
+  background-color: rgba(40, 167, 69, 0.1);
+  color: var(--bs-success);
+  border: 1px solid var(--bs-success);
+}
+
+.badge-out-of-stock {
+  background-color: rgba(108, 117, 125, 0.1);
+  color: var(--gray);
+  border: 1px solid var(--gray);
+}
+
+/* Stats cards */
+.stat-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 24px;
+  border-left: 4px solid var(--primary-orange);
+}
+
+.stat-card-value {
+  font-size: 2.2rem;
+  font-weight: bold;
+  color: var(--dark-gray);
+  margin-bottom: 8px;
+}
+
+.stat-card-title {
+  color: var(--gray);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card-icon {
+  color: var(--primary-orange);
+  font-size: 1.5rem;
+}
+
+/* Loading spinner personalizado */
+.spinner-custom {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--light-gray);
+  border-top: 4px solid var(--primary-orange);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Navegação personalizada */
+.navbar-custom {
+  background: linear-gradient(135deg, var(--primary-orange), var(--light-orange));
+  box-shadow: 0 2px 10px rgba(255, 107, 53, 0.3);
+}
+
+.navbar-brand-custom {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--white) !important;
+}
+
+.nav-link-custom {
+  color: var(--white) !important;
+  font-weight: 500;
+  transition: opacity 0.3s ease;
+}
+
+.nav-link-custom:hover {
+  opacity: 0.8;
+  color: var(--white) !important;
+}
+
+/* Tabelas personalizadas */
+.table-custom thead th {
+  background-color: var(--light-gray);
+  color: var(--dark-gray);
+  font-weight: 600;
+  border-bottom: 2px solid var(--primary-orange);
+}
+
+.table-custom tbody tr:hover {
+  background-color: rgba(255, 107, 53, 0.05);
+}
+
+/* Alerts personalizados */
+.alert-custom {
+  border-radius: 8px;
+  border-left: 4px solid;
+  padding: 16px 20px;
+}
+
+.alert-custom.alert-primary {
+  border-left-color: var(--primary-orange);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(255, 107, 53, 0.05));
+  color: var(--primary-orange);
+}
+
+/* Utilidades personalizadas */
+.page-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--light-gray) 0%, #E8F4F8 100%);
+  padding: 20px;
+}
+
+.shadow-custom {
+  box-shadow: 0 4px 20px rgba(255, 107, 53, 0.1) !important;
+}
+
+.shadow-hover:hover {
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.15) !important;
+}
+
+/* Animações */
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsividade adicional */
+@media (max-width: 768px) {
+  .stat-card-value {
+    font-size: 1.8rem;
+  }
+  
+  .btn-custom {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .page-container {
+    padding: 10px;
+  }
+}
+
+/* =====================================================
+   SISTEMA DE TEMAS GLOBAIS
+   ===================================================== */
+
+/* Tema Escuro */
+body.tema-escuro {
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .navbar {
+  background-color: #1f1f1f !important;
+  border-bottom: 1px solid #333;
+}
+
+body.tema-escuro .card {
+  background-color: #1e1e1e !important;
+  border-color: #333 !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .card-header {
+  background-color: #2a2a2a !important;
+  border-bottom-color: #333 !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .form-control,
+body.tema-escuro .form-select {
+  background-color: #2a2a2a !important;
+  border-color: #444 !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .form-control:focus,
+body.tema-escuro .form-select:focus {
+  background-color: #333 !important;
+  border-color: var(--primary-orange) !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+}
+
+body.tema-escuro .btn-outline-secondary {
+  color: #e0e0e0 !important;
+  border-color: #444 !important;
+}
+
+body.tema-escuro .btn-outline-secondary:hover {
+  background-color: #444 !important;
+  border-color: #555 !important;
+  color: #fff !important;
+}
+
+body.tema-escuro .list-group-item {
+  background-color: #1e1e1e !important;
+  border-color: #333 !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .list-group-item:hover {
+  background-color: #2a2a2a !important;
+}
+
+body.tema-escuro .list-group-item.active {
+  background-color: var(--primary-orange) !important;
+  border-color: var(--primary-orange) !important;
+}
+
+body.tema-escuro .table {
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .table th {
+  border-color: #333 !important;
+}
+
+body.tema-escuro .table td {
+  border-color: #333 !important;
+}
+
+body.tema-escuro .modal-content {
+  background-color: #1e1e1e !important;
+  color: #e0e0e0 !important;
+}
+
+body.tema-escuro .modal-header {
+  border-bottom-color: #333 !important;
+}
+
+body.tema-escuro .modal-footer {
+  border-top-color: #333 !important;
+}
+
+/* Tema Claro (padrão) */
+body.tema-claro {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+}
+
+/* Tema Automático - usa CSS custom properties que mudam com media query */
+body.tema-auto {
+  background-color: var(--bg-auto) !important;
+  color: var(--text-auto) !important;
+}
+
+/* Definir variáveis para tema automático */
+:root {
+  --bg-auto: #ffffff;
+  --text-auto: #212529;
+}
+
+/* Media query para tema automático (modo escuro do sistema) */
+@media (prefers-color-scheme: dark) {
+  body.tema-auto {
+    --bg-auto: #121212;
+    --text-auto: #e0e0e0;
+  }
+  
+  body.tema-auto .card {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e0e0e0 !important;
+  }
+  
+  body.tema-auto .card-header {
+    background-color: #2a2a2a !important;
+    border-bottom-color: #333 !important;
+    color: #e0e0e0 !important;
+  }
+  
+  body.tema-auto .form-control,
+  body.tema-auto .form-select {
+    background-color: #2a2a2a !important;
+    border-color: #444 !important;
+    color: #e0e0e0 !important;
+  }
+  
+  body.tema-auto .list-group-item {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e0e0e0 !important;
+  }
+}

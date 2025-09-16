@@ -1,0 +1,215 @@
+<div class="nova-senha-container">
+  <div class="container-fluid h-100">
+    <div class="row h-100 justify-content-center align-items-center">
+      <div class="col-md-5 col-lg-4">
+        
+        <!-- Card de Nova Senha -->
+        <div class="card shadow-lg border-0">
+          <div class="card-header bg-success text-white text-center py-4">
+            <h3 class="mb-0">
+              <i class="bi bi-shield-lock me-2"></i>
+              Nova Senha
+            </h3>
+            <p class="mb-0 opacity-75">Defina sua nova senha de acesso</p>
+          </div>
+          
+          <div class="card-body p-4">
+            
+            <!-- Mensagem de Sucesso -->
+            <div class="alert alert-success alert-dismissible fade show" *ngIf="successMessage" role="alert">
+              <i class="bi bi-check-circle me-2"></i>
+              {{ successMessage }}
+              <div class="mt-2">
+                <small class="text-muted d-block">
+                  Redirecionando para o login...
+                </small>
+              </div>
+            </div>
+
+            <!-- Mensagem de Erro -->
+            <div class="alert alert-danger alert-dismissible fade show" *ngIf="errorMessage" role="alert">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              {{ errorMessage }}
+            </div>
+
+            <!-- Instruções -->
+            <div class="alert alert-info" *ngIf="!successMessage && !senhaAtualValidada && isUserLoggedIn">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Passo 1:</strong>
+              <p class="mb-0 mt-2">Para sua segurança, digite sua senha atual para confirmar a alteração.</p>
+            </div>
+
+            <div class="alert alert-info" *ngIf="!successMessage && !codigoValidado && !isUserLoggedIn">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Passo 1:</strong>
+              <p class="mb-0 mt-2">Digite o código de 6 caracteres que foi enviado para seu email.</p>
+            </div>
+
+            <div class="alert alert-info" *ngIf="!successMessage && (codigoValidado || senhaAtualValidada)">
+              <i class="bi bi-shield-check me-2"></i>
+              <strong>Passo 2:</strong>
+              <p class="mb-0 mt-2">{{ isUserLoggedIn ? 'Senha atual confirmada!' : 'Código validado!' }} Agora defina sua nova senha forte.</p>
+            </div>
+
+            <!-- ETAPA 1a: Validar Senha Atual (para usuários logados) -->
+            <form [formGroup]="validarSenhaAtualForm" (ngSubmit)="validarSenhaAtual()" novalidate *ngIf="!successMessage && !senhaAtualValidada && isUserLoggedIn">
+              
+              <!-- Senha Atual -->
+              <div class="mb-3">
+                <label for="senhaAtual" class="form-label">
+                  <i class="bi bi-shield-lock me-1"></i>
+                  Senha Atual
+                </label>
+                <input 
+                  type="password" 
+                  class="form-control"
+                  [class.is-invalid]="getSenhaAtualError()"
+                  id="senhaAtual" 
+                  formControlName="senhaAtual"
+                  placeholder="Digite sua senha atual">
+                <div class="invalid-feedback">
+                  {{ getSenhaAtualError() }}
+                </div>
+              </div>
+
+              <!-- Botão de Validar Senha Atual -->
+              <div class="d-grid gap-2 mb-3">
+                <button 
+                  type="submit" 
+                  class="btn btn-warning btn-lg"
+                  [disabled]="isLoading">
+                  <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i class="bi bi-check-circle me-2" *ngIf="!isLoading"></i>
+                  {{ isLoading ? 'Verificando...' : 'Confirmar Senha' }}
+                </button>
+              </div>
+
+            </form>
+
+            <!-- ETAPA 1b: Validar Código (para usuários não logados) -->
+            <form [formGroup]="validarCodigoForm" (ngSubmit)="validarCodigo()" novalidate *ngIf="!successMessage && !codigoValidado && !isUserLoggedIn">
+              
+              <!-- Código de Verificação -->
+              <div class="mb-3">
+                <label for="codigo" class="form-label">
+                  <i class="bi bi-shield-check me-1"></i>
+                  Código de Verificação
+                </label>
+                <input 
+                  type="text" 
+                  class="form-control text-center fw-bold"
+                  [class.is-invalid]="getCodigoError()"
+                  id="codigo" 
+                  formControlName="codigo"
+                  placeholder="Digite o código"
+                  maxlength="6"
+                  style="letter-spacing: 2px; font-size: 1.1rem;">
+                <div class="invalid-feedback">
+                  {{ getCodigoError() }}
+                </div>
+                <small class="text-muted">Código de exemplo: <strong>123456</strong></small>
+              </div>
+
+              <!-- Botão de Validar Código -->
+              <div class="d-grid gap-2 mb-3">
+                <button 
+                  type="submit" 
+                  class="btn btn-warning btn-lg"
+                  [disabled]="isLoading">
+                  <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i class="bi bi-check-circle me-2" *ngIf="!isLoading"></i>
+                  {{ isLoading ? 'Validando...' : 'Validar Código' }}
+                </button>
+              </div>
+
+            </form>
+
+            <!-- ETAPA 2: Definir Nova Senha -->
+            <form [formGroup]="novaSenhaForm" (ngSubmit)="onSubmit()" novalidate *ngIf="!successMessage && (codigoValidado || senhaAtualValidada)">
+              
+              <!-- Nova Senha -->
+              <div class="mb-3">
+                <label for="novaSenha" class="form-label">
+                  <i class="bi bi-lock me-1"></i>
+                  Nova Senha
+                </label>
+                <input 
+                  type="password" 
+                  class="form-control"
+                  [class.is-invalid]="getFieldError('novaSenha')"
+                  id="novaSenha" 
+                  formControlName="novaSenha"
+                  placeholder="Digite sua nova senha">
+                <div class="invalid-feedback">
+                  {{ getFieldError('novaSenha') }}
+                </div>
+                <small class="text-muted">Mínimo de 6 caracteres</small>
+              </div>
+
+              <!-- Confirmar Nova Senha -->
+              <div class="mb-4">
+                <label for="confirmarSenha" class="form-label">
+                  <i class="bi bi-lock-fill me-1"></i>
+                  Confirmar Nova Senha
+                </label>
+                <input 
+                  type="password" 
+                  class="form-control"
+                  [class.is-invalid]="getFieldError('confirmarSenha')"
+                  id="confirmarSenha" 
+                  formControlName="confirmarSenha"
+                  placeholder="Confirme sua nova senha">
+                <div class="invalid-feedback">
+                  {{ getFieldError('confirmarSenha') }}
+                </div>
+              </div>
+
+              <!-- Botão de Redefinir -->
+              <div class="d-grid gap-2 mb-3">
+                <button 
+                  type="submit" 
+                  class="btn btn-success btn-lg"
+                  [disabled]="isLoading">
+                  <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i class="bi bi-check-circle me-2" *ngIf="!isLoading"></i>
+                  {{ isLoading ? 'Redefinindo...' : 'Redefinir Senha' }}
+                </button>
+              </div>
+
+            </form>
+
+            <!-- Links de Navegação -->
+            <div class="text-center" *ngIf="!successMessage">
+              <hr class="my-3">
+              <div class="row" *ngIf="!codigoValidado && !senhaAtualValidada">
+                <div class="d-grid gap-2">
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-primary btn-sm"
+                    (click)="voltarLogin()">
+                    <i class="bi bi-arrow-left me-1" *ngIf="isUserLoggedIn || fromProfile"></i>
+                    <i class="bi bi-box-arrow-in-right me-1" *ngIf="!isUserLoggedIn && !fromProfile"></i>
+                    {{ (isUserLoggedIn || fromProfile) ? 'Voltar' : 'Voltar ao Login' }}
+                  </button>
+                </div>
+              </div>
+              
+              <div *ngIf="codigoValidado || senhaAtualValidada">
+                <button 
+                  type="button" 
+                  class="btn btn-outline-primary btn-sm"
+                  (click)="voltarLogin()">
+                  <i class="bi bi-arrow-left me-1" *ngIf="isUserLoggedIn || fromProfile"></i>
+                  <i class="bi bi-box-arrow-in-right me-1" *ngIf="!isUserLoggedIn && !fromProfile"></i>
+                  {{ (isUserLoggedIn || fromProfile) ? 'Cancelar e Voltar' : 'Cancelar e ir para Login' }}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>

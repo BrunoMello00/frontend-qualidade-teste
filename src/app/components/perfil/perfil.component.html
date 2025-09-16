@@ -1,0 +1,286 @@
+<div class="perfil-container">
+  <div class="container-fluid py-4">
+    
+    <!-- Header da página -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="mb-1">
+              <i class="bi bi-person-circle me-2 text-primary"></i>
+              Meu Perfil
+            </h2>
+            <p class="text-muted mb-0">Gerencie suas informações pessoais</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensagens de feedback -->
+    <div class="row mb-3" *ngIf="successMessage || errorMessage">
+      <div class="col-12">
+        <div class="alert alert-success alert-dismissible fade show" *ngIf="successMessage" role="alert">
+          <i class="bi bi-check-circle me-2"></i>
+          {{ successMessage }}
+        </div>
+        
+        <div class="alert alert-danger alert-dismissible fade show" *ngIf="errorMessage" role="alert">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ errorMessage }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Card principal do perfil -->
+    <div class="row">
+      <div class="col-lg-8 col-xl-8">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-person-vcard me-2"></i>
+              Informações Pessoais
+            </h5>
+            
+            <!-- Botões de ação no header do card -->
+            <div class="btn-group" *ngIf="!isEditing">
+              <button 
+                type="button" 
+                class="btn btn-outline-light btn-sm me-2"
+                (click)="enableEditing()">
+                <i class="bi bi-pencil me-1"></i>
+                Editar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-outline-light btn-sm"
+                (click)="irParaAlterarSenha()">
+                <i class="bi bi-key me-1"></i>
+                Alterar Senha
+              </button>
+            </div>
+          </div>
+          
+          <div class="card-body p-4">
+            <form [formGroup]="perfilForm" (ngSubmit)="onSubmit()">
+              
+              <!-- Avatar placeholder -->
+              <div class="text-center mb-4">
+                <div class="avatar-placeholder">
+                  <i class="bi bi-person-circle display-1 text-primary"></i>
+                </div>
+                <h6 class="mt-2 mb-0">{{ currentUser?.nome || 'Usuário' }}</h6>
+                <small class="text-muted">{{ perfilForm.get('cargo')?.value }}</small>
+              </div>
+
+              <div class="row">
+                <!-- Nome -->
+                <div class="col-md-6 mb-3">
+                  <label for="nome" class="form-label">
+                    <i class="bi bi-person me-1"></i>
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="nome"
+                    formControlName="nome"
+                    [readonly]="!isEditing"
+                    [class.is-invalid]="getFieldError('nome')"
+                    placeholder="Digite seu nome completo">
+                  <div class="invalid-feedback">
+                    {{ getFieldError('nome') }}
+                  </div>
+                </div>
+
+                <!-- Email -->
+                <div class="col-md-6 mb-3">
+                  <label for="email" class="form-label">
+                    <i class="bi bi-envelope me-1"></i>
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="email"
+                    formControlName="email"
+                    [readonly]="!isEditing"
+                    [class.is-invalid]="getFieldError('email')"
+                    placeholder="Digite seu email">
+                  <div class="invalid-feedback">
+                    {{ getFieldError('email') }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <!-- Telefone -->
+                <div class="col-md-6 mb-3">
+                  <label for="telefone" class="form-label">
+                    <i class="bi bi-telephone me-1"></i>
+                    Telefone *
+                  </label>
+                  <input
+                    type="tel"
+                    class="form-control"
+                    id="telefone"
+                    formControlName="telefone"
+                    [readonly]="!isEditing"
+                    [class.is-invalid]="getFieldError('telefone')"
+                    (input)="onTelefoneInput($event)"
+                    placeholder="(11) 99999-9999"
+                    maxlength="15">
+                  <div class="invalid-feedback">
+                    {{ getFieldError('telefone') }}
+                  </div>
+                </div>
+
+                <!-- Perfil de Acesso -->
+                <div class="col-md-6 mb-3">
+                  <label for="cargo" class="form-label">
+                    <i class="bi bi-person-badge me-1"></i>
+                    Perfil de Acesso
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="cargo"
+                    formControlName="cargo"
+                    readonly>
+                </div>
+              </div>
+
+              <div class="row">
+                <!-- Departamento -->
+                <div class="col-md-6 mb-3">
+                  <label for="departamento" class="form-label">
+                    <i class="bi bi-building me-1"></i>
+                    Departamento
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="departamento"
+                    formControlName="departamento"
+                    readonly>
+                </div>
+
+                <!-- Data do último login -->
+                <div class="col-md-6 mb-3">
+                  <label for="dataUltimoLogin" class="form-label">
+                    <i class="bi bi-clock me-1"></i>
+                    Último Login
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dataUltimoLogin"
+                    formControlName="dataUltimoLogin"
+                    readonly>
+                </div>
+              </div>
+
+              <!-- Data de criação -->
+              <div class="row">
+                <div class="col-md-6 mb-4">
+                  <label for="dataCriacao" class="form-label">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    Membro desde
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="dataCriacao"
+                    formControlName="dataCriacao"
+                    readonly>
+                </div>
+              </div>
+
+              <!-- Botões de ação quando editando -->
+              <div class="d-flex justify-content-end gap-2" *ngIf="isEditing">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  (click)="cancelEditing()"
+                  [disabled]="isLoading">
+                  <i class="bi bi-x-circle me-2"></i>
+                  Cancelar
+                </button>
+                
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  [disabled]="perfilForm.invalid || isLoading">
+                  <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i *ngIf="!isLoading" class="bi bi-check-circle me-2"></i>
+                  {{ isLoading ? 'Salvando...' : 'Salvar Alterações' }}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card de informações adicionais -->
+      <div class="col-lg-4 col-xl-4">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-warning text-dark">
+            <h6 class="mb-0">
+              <i class="bi bi-info-circle me-2"></i>
+              Informações da Conta
+            </h6>
+          </div>
+          <div class="card-body bg-light">
+            <div class="list-group list-group-flush">
+              <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 bg-transparent">
+                <div>
+                  <i class="bi bi-shield-check text-success me-2"></i>
+                  <strong>Status da Conta</strong>
+                </div>
+                <span class="badge bg-success">Ativa</span>
+              </div>
+              
+              <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 bg-transparent">
+                <div>
+                  <i class="bi bi-key text-warning me-2"></i>
+                  <strong>Nível de Acesso</strong>
+                </div>
+                <span class="badge bg-warning text-dark">Administrador</span>
+              </div>
+              
+              <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 bg-transparent">
+                <div>
+                  <i class="bi bi-clock text-primary me-2"></i>
+                  <strong>Sessão Atual</strong>
+                </div>
+                <span class="badge bg-primary">Online</span>
+              </div>
+              
+              <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 bg-transparent">
+                <div>
+                  <i class="bi bi-calendar3 text-muted me-2"></i>
+                  <strong>Último Acesso</strong>
+                </div>
+                <small class="text-muted">Hoje, 14:30</small>
+              </div>
+            </div>
+            
+            <!-- Seção de ações rápidas -->
+            <hr class="my-3">
+            <div class="d-grid gap-2">
+              <button class="btn btn-outline-warning btn-sm" (click)="goToConfiguracoes()">
+                <i class="bi bi-gear me-2"></i>
+                Configurações
+              </button>
+              <button class="btn btn-outline-danger btn-sm" (click)="logout()">
+                <i class="bi bi-box-arrow-right me-2"></i>
+                Sair da Conta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

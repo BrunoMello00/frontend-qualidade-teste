@@ -1,0 +1,121 @@
+<div class="redefinir-container">
+  <div class="container-fluid h-100">
+    <div class="row h-100 justify-content-center align-items-center">
+      <div class="col-md-5 col-lg-4">
+        
+        <!-- Card de Redefinição -->
+        <div class="card shadow-lg border-0">
+          <div class="card-header bg-warning text-dark text-center py-4">
+            <h3 class="mb-0">
+              <i class="bi bi-key me-2"></i>
+              Redefinir Senha
+            </h3>
+            <p class="mb-0 opacity-75">Recupere o acesso à sua conta</p>
+          </div>
+          
+          <div class="card-body p-4">
+            
+            <!-- Mensagem de Sucesso -->
+            <div class="alert alert-success alert-dismissible fade show" *ngIf="successMessage" role="alert">
+              <i class="bi bi-check-circle me-2"></i>
+              {{ successMessage }}
+              <div class="mt-2" *ngIf="emailEnviado">
+                <small class="text-muted d-block">
+                  <strong>Próximo passo:</strong> Verifique sua caixa de entrada e spam.
+                </small>
+              </div>
+            </div>
+
+            <!-- Mensagem de Erro -->
+            <div class="alert alert-danger alert-dismissible fade show" *ngIf="errorMessage" role="alert">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              {{ errorMessage }}
+            </div>
+
+            <!-- Instruções -->
+            <div class="alert alert-info" *ngIf="!emailEnviado">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Como funciona:</strong>
+              <ol class="mb-0 mt-2 ps-3">
+                <li>Digite seu email cadastrado</li>
+                <li>Receberá um código por email</li>
+                <li>Use o código para criar nova senha</li>
+              </ol>
+            </div>
+
+            <!-- Formulário de Solicitação -->
+            <form [formGroup]="solicitarForm" (ngSubmit)="onSubmit()" novalidate *ngIf="!emailEnviado">
+              
+              <!-- Email -->
+              <div class="mb-3">
+                <label for="email" class="form-label">
+                  <i class="bi bi-envelope me-1"></i>
+                  Email cadastrado
+                </label>
+                <input 
+                  type="email" 
+                  class="form-control"
+                  [class.is-invalid]="getFieldError('email')"
+                  id="email" 
+                  formControlName="email"
+                  placeholder="Digite seu email">
+                <div class="invalid-feedback">
+                  {{ getFieldError('email') }}
+                </div>
+              </div>
+
+              <!-- Botão de Envio -->
+              <div class="d-grid gap-2 mb-3">
+                <button 
+                  type="submit" 
+                  class="btn btn-warning btn-lg text-dark"
+                  [disabled]="isLoading">
+                  <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                  <i class="bi bi-send me-2" *ngIf="!isLoading"></i>
+                  {{ isLoading ? 'Enviando...' : 'Enviar Código' }}
+                </button>
+              </div>
+
+            </form>
+
+            <!-- Ações após email enviado -->
+            <div *ngIf="emailEnviado" class="text-center">
+              <div class="d-grid gap-2 mb-3">
+                <button 
+                  type="button" 
+                  class="btn btn-success btn-lg"
+                  (click)="irParaDefinirSenha()">
+                  <i class="bi bi-arrow-right me-2"></i>
+                  Já recebi o código
+                </button>
+              </div>
+              
+              <button 
+                type="button" 
+                class="btn btn-link text-muted"
+                (click)="emailEnviado = false; successMessage = ''">
+                <i class="bi bi-arrow-clockwise me-1"></i>
+                Tentar com outro email
+              </button>
+            </div>
+
+            <!-- Link para Login -->
+            <div class="text-center" *ngIf="!emailEnviado">
+              <hr class="my-3">
+              <p class="text-muted mb-2">Lembrou da senha?</p>
+              <button 
+                type="button" 
+                class="btn btn-outline-primary"
+                (click)="voltarLogin()">
+                <i class="bi bi-box-arrow-in-right me-2"></i>
+                Voltar ao Login
+              </button>
+            </div>
+
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>

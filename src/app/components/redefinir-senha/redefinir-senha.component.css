@@ -1,0 +1,214 @@
+.redefinir-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--light-gray) 0%, #E8F4F8 100%);
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  max-width: 480px;
+  width: 100%;
+  margin: auto;
+  border-radius: 20px;
+  overflow: hidden;
+  border: none;
+  box-shadow: 0 15px 35px rgba(255, 107, 53, 0.1);
+}
+
+.card-header {
+  background: linear-gradient(135deg, var(--primary-orange), var(--light-orange)) !important;
+  border: none;
+  padding: 2rem;
+}
+
+.card-header h3 {
+  font-weight: 600;
+  font-size: 1.75rem;
+  margin: 0;
+  color: var(--white);
+}
+
+.card-header p {
+  font-size: 1rem;
+  margin: 0.5rem 0 0 0;
+  color: var(--white);
+}
+
+.card-body {
+  background-color: var(--white);
+  padding: 2.5rem;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--dark-gray);
+  margin-bottom: 0.75rem;
+}
+
+.form-control {
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 15px 20px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background-color: #f8f9fa;
+}
+
+.form-control:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.15);
+  background-color: var(--white);
+}
+
+.form-control.is-invalid {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, var(--primary-orange), var(--light-orange));
+  border: none;
+  border-radius: 12px;
+  padding: 15px 30px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  color: var(--white);
+}
+
+.btn-warning:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+  background: linear-gradient(135deg, var(--dark-orange), var(--primary-orange));
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 15px 30px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+  background: linear-gradient(135deg, #218838 0%, #1dc2a0 100%);
+}
+
+.btn-outline-primary {
+  border: 2px solid var(--primary-orange);
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  color: var(--primary-orange);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-orange);
+  border-color: var(--primary-orange);
+  color: var(--white);
+  transform: translateY(-1px);
+}
+
+.btn-link {
+  color: #6c757d;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.btn-link:hover {
+  color: var(--primary-orange);
+  text-decoration: underline;
+}
+
+.form-label i {
+  color: var(--primary-orange);
+}
+
+.alert {
+  border: none;
+  border-radius: 12px;
+  padding: 20px 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.alert-info {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(255, 107, 53, 0.05));
+  color: var(--primary-orange);
+  border-left: 4px solid var(--primary-orange);
+}
+
+.alert-info ol {
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0fff4 100%);
+  color: #2e7d32;
+  border-left: 4px solid #28a745;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+  color: #c62828;
+  border-left: 4px solid #dc3545;
+}
+
+.invalid-feedback {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .redefinir-container {
+    padding: 15px;
+  }
+  
+  .card {
+    max-width: 100%;
+  }
+  
+  .card-header {
+    padding: 1.5rem;
+  }
+  
+  .card-header h3 {
+    font-size: 1.5rem;
+  }
+  
+  .card-body {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .card-body {
+    padding: 1.5rem;
+  }
+  
+  .form-control {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+  }
+  
+  .btn-warning, .btn-success {
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
+  
+  .btn-outline-primary {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+  }
+}

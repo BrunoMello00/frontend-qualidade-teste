@@ -1,0 +1,47 @@
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card border-warning">
+        <div class="card-header bg-warning text-dark">
+          <h4 class="mb-0">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Acesso Negado
+          </h4>
+        </div>
+        <div class="card-body text-center">
+          <div class="mb-4">
+            <i class="bi bi-shield-x text-warning" style="font-size: 4rem;"></i>
+          </div>
+          
+          <h5 class="card-title mb-3">Permissão Insuficiente</h5>
+          <p class="card-text mb-4">{{ message }}</p>
+          
+          <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+            <button 
+              type="button" 
+              class="btn btn-primary"
+              (click)="voltarParaPrincipal()">
+              <i class="bi bi-house-door me-1"></i>
+              Voltar ao Início
+            </button>
+            
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary"
+              (click)="irParaPerfil()">
+              <i class="bi bi-person me-1"></i>
+              Meu Perfil
+            </button>
+          </div>
+        </div>
+        
+        <div class="card-footer text-muted text-center">
+          <small>
+            Se você acredita que deveria ter acesso a esta área, 
+            entre em contato com o administrador do sistema.
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

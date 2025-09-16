@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": []
+  },
+  "files": [
+    "src/main.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts",
+    "src/**/*.ts"
+  ]
+  ,
+  "exclude": [
+    "src/app/guards/enhanced-auth.guard.ts",
+    "src/app/interceptors/auth.interceptor.ts",
+    "src/app/interceptors/enhanced-auth.interceptor.ts",
+    "src/app/services/usuario.service.ts",
+    "src/environments/environment.local.ts",
+    "src/environments/environment.prod.ts"
+  ]
+}

@@ -1,0 +1,46 @@
+/* Estilos específicos do componente Login usando Bootstrap */
+
+/* Customizações mínimas para complementar o Bootstrap */
+.input-group-text {
+  background-color: var(--bs-light) !important;
+  border: 2px solid #E9ECEF;
+  border-right: none;
+}
+
+.form-control-custom {
+  border: 2px solid #E9ECEF;
+  border-left: none;
+  padding-left: 0.75rem;
+}
+
+.form-control-custom:focus {
+  border-color: var(--primary-orange);
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+  border-left: none;
+}
+
+.form-control-custom:focus + .input-group-text,
+.input-group-text:has(+ .form-control-custom:focus) {
+  border-color: var(--primary-orange);
+}
+
+/* Animação para o botão */
+.btn-custom:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+}
+
+/* Responsividade para telas pequenas */
+@media (max-width: 576px) {
+  .card-custom {
+    margin: 1rem 0.5rem;
+  }
+  
+  .card-body {
+    padding: 1.5rem !important;
+  }
+  
+  .card-footer {
+    padding: 1rem !important;
+  }
+}

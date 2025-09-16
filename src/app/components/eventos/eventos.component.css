@@ -1,0 +1,108 @@
+/* ===================================
+   TEMA LARANJA PARA EVENTOS
+   =================================== */
+
+/* Modal headers laranjas */
+.modal-header.bg-primary {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.modal-header .btn-close-white {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.modal-title {
+  font-weight: 600;
+}
+
+.modal-body {
+  background-color: #ffffff !important;
+  padding: 2rem;
+}
+
+.modal-footer {
+  background-color: #f8f9fa !important;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Botões primários laranjas */
+.btn-primary {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #e55a2b 0%, #e57938 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.btn-primary:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+}
+
+/* Checkboxes laranjas */
+.form-check-input:checked {
+  background-color: #ff6b35 !important;
+  border-color: #ff6b35 !important;
+}
+
+/* ===================================
+   ESTILOS GERAIS
+   =================================== */
+
+.page-container {
+  padding: 20px;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border-radius: 0.5rem;
+}
+
+.card-header {
+  background-color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.table th {
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.btn-group-sm .btn {
+  padding: 0.25rem 0.5rem;
+}
+
+.modal {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.badge {
+  font-size: 0.75rem;
+}
+
+.form-check-input:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 10px;
+  }
+  
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+}

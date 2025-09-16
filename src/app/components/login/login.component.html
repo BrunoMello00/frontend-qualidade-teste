@@ -1,0 +1,249 @@
+<div class="page-container min-vh-100 d-flex align-items-center">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-6 col-lg-4">
+        
+        <div class="card card-custom shadow-custom fade-in">
+          
+          <!-- Header com logo -->
+          <div class="card-header bg-gradient-primary text-white text-center py-4">
+            <div class="mb-3">
+              <i class="bi bi-shop display-4 text-white"></i>
+            </div>
+            <h1 class="h3 mb-2 fw-bold">Sistema de Estoque e Vendas</h1>
+            <p class="mb-0 opacity-75">Gerencie seu negócio com inteligência</p>
+          </div>
+
+          <!-- Formulário de login -->
+          <div class="card-body p-4" *ngIf="!showMfaStep">
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+              
+              <!-- Mensagem de erro -->
+              <div *ngIf="errorMessage" class="alert alert-danger alert-custom d-flex align-items-center mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {{ errorMessage }}
+              </div>
+
+              <!-- Campo Email -->
+              <div class="mb-4">
+                <label class="form-label fw-semibold text-uppercase small text-muted">Email</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-envelope text-primary"></i>
+                  </span>
+                  <input 
+                    type="email" 
+                    formControlName="email"
+                    placeholder="Digite seu email"
+                    class="form-control form-control-custom border-start-0"
+                    [class.is-invalid]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
+                </div>
+                <div *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" 
+                     class="invalid-feedback d-block">
+                  <i class="bi bi-exclamation-circle me-1"></i>
+                  {{ getErrorMessage('email') }}
+                </div>
+              </div>
+
+              <!-- Campo Senha -->
+              <div class="mb-4">
+                <label class="form-label fw-semibold text-uppercase small text-muted">Senha</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-lock text-primary"></i>
+                  </span>
+                  <input 
+                    type="password" 
+                    formControlName="senha"
+                    placeholder="Digite sua senha"
+                    class="form-control form-control-custom border-start-0"
+                    [class.is-invalid]="loginForm.get('senha')?.invalid && loginForm.get('senha')?.touched">
+                </div>
+                <div *ngIf="loginForm.get('senha')?.invalid && loginForm.get('senha')?.touched" 
+                     class="invalid-feedback d-block">
+                  <i class="bi bi-exclamation-circle me-1"></i>
+                  {{ getErrorMessage('senha') }}
+                </div>
+              </div>
+
+              <!-- Botão de Login -->
+              <button 
+                type="submit" 
+                class="btn btn-primary btn-custom w-100 py-3"
+                [disabled]="isLoading || loginForm.invalid">
+                
+                <div *ngIf="isLoading" class="d-flex align-items-center justify-content-center">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  <span>Entrando...</span>
+                </div>
+                
+                <div *ngIf="!isLoading" class="d-flex align-items-center justify-content-center">
+                  <i class="bi bi-box-arrow-in-right me-2"></i>
+                  <span>Entrar no Sistema</span>
+                </div>
+              </button>
+
+            </form>
+
+            <!-- Links de navegação -->
+            <div class="text-center mt-4">
+              <!-- Link para redefinir senha -->
+              <p class="mb-2">
+                <button 
+                  type="button" 
+                  class="btn btn-link p-0 text-decoration-none text-muted"
+                  (click)="irParaRedefinirSenha()">
+                  <i class="bi bi-key me-1"></i>
+                  Esqueci minha senha
+                </button>
+              </p>
+              
+              <!-- Separador -->
+              <hr class="my-3">
+              
+              <!-- Link para cadastro - DESABILITADO PARA USO FUTURO -->
+              <!-- 
+              <p class="text-muted mb-2">Não possui uma conta?</p>
+              <button 
+                type="button" 
+                class="btn btn-outline-success"
+                (click)="irParaCadastro()">
+                <i class="bi bi-person-plus me-2"></i>
+                Criar Conta
+              </button>
+              -->
+              
+              <!-- Mensagem para uso único -->
+              <p class="text-muted small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Sistema de uso interno
+              </p>
+            </div>
+
+          </div>
+
+          <!-- Formulário de MFA -->
+          <div class="card-body p-4" *ngIf="showMfaStep">
+            
+            <!-- Mensagem de sucesso -->
+            <div *ngIf="successMessage" class="alert alert-success alert-custom d-flex align-items-center mb-4">
+              <i class="bi bi-check-circle-fill me-2"></i>
+              {{ successMessage }}
+            </div>
+
+            <!-- Mensagem de erro -->
+            <div *ngIf="errorMessage" class="alert alert-danger alert-custom d-flex align-items-center mb-4">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {{ errorMessage }}
+            </div>
+
+            <div class="text-center mb-4">
+              <h5 class="mb-3">Verificação em Duas Etapas</h5>
+              <p class="text-muted">
+                Digite o código de 6 dígitos enviado para 
+                <strong>{{ mfaDestination }}</strong>
+              </p>
+              <!-- Dica para demonstração -->
+              <div class="alert alert-info small">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Para demonstração:</strong> Use o código <strong>123456</strong> ou verifique o console do navegador
+              </div>
+            </div>
+
+            <form [formGroup]="mfaForm" (ngSubmit)="onMfaSubmit()">
+              
+              <!-- Campo Código MFA -->
+              <div class="mb-4">
+                <label class="form-label fw-semibold text-uppercase small text-muted">Código de Verificação</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-shield-check text-primary"></i>
+                  </span>
+                  <input 
+                    type="text" 
+                    formControlName="code"
+                    placeholder="000000"
+                    maxlength="6"
+                    class="form-control form-control-custom border-start-0 text-center"
+                    [class.is-invalid]="mfaForm.get('code')?.invalid && mfaForm.get('code')?.touched">
+                </div>
+                <div *ngIf="mfaForm.get('code')?.invalid && mfaForm.get('code')?.touched" 
+                     class="invalid-feedback d-block">
+                  <i class="bi bi-exclamation-circle me-1"></i>
+                  Digite um código de 6 dígitos
+                </div>
+              </div>
+
+              <!-- Botão de Verificar -->
+              <button 
+                type="submit" 
+                class="btn btn-primary btn-custom w-100 py-3 mb-3"
+                [disabled]="isLoading || mfaForm.invalid">
+                
+                <div *ngIf="isLoading" class="d-flex align-items-center justify-content-center">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  <span>Verificando...</span>
+                </div>
+                
+                <div *ngIf="!isLoading" class="d-flex align-items-center justify-content-center">
+                  <i class="bi bi-shield-check me-2"></i>
+                  <span>Verificar Código</span>
+                </div>
+              </button>
+
+            </form>
+
+            <!-- Opções MFA -->
+            <div class="text-center">
+              <button 
+                type="button" 
+                class="btn btn-outline-secondary me-2"
+                (click)="resendMfaCode()"
+                [disabled]="isLoading">
+                <i class="bi bi-arrow-clockwise me-1"></i>
+                Reenviar Código
+              </button>
+              
+              <button 
+                type="button" 
+                class="btn btn-link"
+                (click)="backToLogin()">
+                <i class="bi bi-arrow-left me-1"></i>
+                Voltar ao Login
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div class="card-footer bg-light text-center py-4">
+            <p class="mb-3 text-muted small">Sistema desenvolvido para TCC - Gestão Inteligente</p>
+            
+            <div class="row g-2">
+              <div class="col-4">
+                <div class="d-flex flex-column align-items-center text-primary">
+                  <i class="bi bi-boxes fs-4 mb-1"></i>
+                  <span class="small fw-medium">Estoque</span>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="d-flex flex-column align-items-center text-primary">
+                  <i class="bi bi-graph-up fs-4 mb-1"></i>
+                  <span class="small fw-medium">Vendas</span>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="d-flex flex-column align-items-center text-primary">
+                  <i class="bi bi-bar-chart fs-4 mb-1"></i>
+                  <span class="small fw-medium">Relatórios</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        
+      </div>
+    </div>
+  </div>
+</div>

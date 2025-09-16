@@ -1,0 +1,95 @@
+.perfil-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.avatar-placeholder {
+  position: relative;
+  display: inline-block;
+}
+
+.avatar-placeholder i {
+  font-size: 5rem;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.form-control[readonly] {
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.list-group-item {
+  background-color: transparent;
+}
+
+/* Estilo específico para a box de informações da conta */
+.card-header.bg-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%) !important;
+  border-bottom: 2px solid #ffb300;
+}
+
+.card-body.bg-light {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+}
+
+.list-group-item.bg-transparent:hover {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.btn-outline-danger:hover {
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.badge {
+  font-size: 0.75rem;
+}
+
+.btn-group .btn {
+  border-radius: 0.375rem;
+}
+
+.btn-group .btn:not(:last-child) {
+  margin-right: 0.5rem;
+}
+
+/* Animações */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .perfil-container .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .avatar-placeholder i {
+    font-size: 3rem;
+  }
+}

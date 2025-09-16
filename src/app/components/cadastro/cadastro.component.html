@@ -1,0 +1,145 @@
+<!-- Exemplo de uso do Password Strength Indicator -->
+<div class="cadastro-container">
+  <h2>Cadastro de Usuário</h2>
+
+  <form [formGroup]="cadastroForm" (ngSubmit)="onSubmit()">
+    
+    <!-- Campo Email -->
+    <div class="form-group">
+      <label for="email">Email:</label>
+      <input 
+        type="email" 
+        id="email" 
+        formControlName="email" 
+        class="form-control"
+        [class.invalid]="isFieldInvalid('email')"
+        placeholder="seu@email.com">
+      
+      <div class="error-message" *ngIf="isFieldInvalid('email')">
+        <span *ngIf="cadastroForm.get('email')?.hasError('required')">
+          Email é obrigatório
+        </span>
+        <span *ngIf="cadastroForm.get('email')?.hasError('email')">
+          Email inválido
+        </span>
+      </div>
+    </div>
+
+    <!-- Campo Nome -->
+    <div class="form-group">
+      <label for="nome">Nome Completo:</label>
+      <input 
+        type="text" 
+        id="nome" 
+        formControlName="nome" 
+        class="form-control"
+        [class.invalid]="isFieldInvalid('nome')"
+        placeholder="Seu nome completo">
+      
+      <div class="error-message" *ngIf="isFieldInvalid('nome')">
+        <span *ngIf="cadastroForm.get('nome')?.hasError('required')">
+          Nome é obrigatório
+        </span>
+        <span *ngIf="cadastroForm.get('nome')?.hasError('minlength')">
+          Nome deve ter pelo menos 2 caracteres
+        </span>
+      </div>
+    </div>
+
+    <!-- Campo Senha com Indicador de Força -->
+    <div class="form-group">
+      <label for="senha">Senha:</label>
+      <div class="password-input-container">
+        <input 
+          type="password" 
+          id="senha" 
+          formControlName="senha" 
+          class="form-control"
+          [class.invalid]="isFieldInvalid('senha')"
+          placeholder="Digite uma senha forte">
+        
+        <button 
+          type="button" 
+          class="password-toggle-btn"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="showPassword ? 'Ocultar senha' : 'Mostrar senha'">
+          {{ showPassword ? '🙈' : '👁️' }}
+        </button>
+      </div>
+
+      <!-- Indicador de Força da Senha -->
+      <app-password-strength-indicator
+        [passwordControl]="getPasswordControl()"
+        [email]="cadastroForm.get('email')?.value"
+        [showPolicy]="true"
+        [showGenerator]="true">
+      </app-password-strength-indicator>
+
+      <div class="error-message" *ngIf="isFieldInvalid('senha')">
+        <span *ngIf="cadastroForm.get('senha')?.hasError('required')">
+          Senha é obrigatória
+        </span>
+      </div>
+    </div>
+
+    <!-- Confirmação de Senha -->
+    <div class="form-group">
+      <label for="confirmarSenha">Confirmar Senha:</label>
+      <input 
+        type="password" 
+        id="confirmarSenha" 
+        formControlName="confirmarSenha" 
+        class="form-control"
+        [class.invalid]="isFieldInvalid('confirmarSenha')"
+        placeholder="Confirme sua senha">
+      
+      <div class="error-message" *ngIf="isFieldInvalid('confirmarSenha')">
+        <span *ngIf="cadastroForm.get('confirmarSenha')?.hasError('required')">
+          Confirmação de senha é obrigatória
+        </span>
+        <span *ngIf="cadastroForm.get('confirmarSenha')?.hasError('passwordMismatch')">
+          Senhas não coincidem
+        </span>
+      </div>
+    </div>
+
+    <!-- Termos e Condições -->
+    <div class="form-group">
+      <label class="checkbox-container">
+        <input 
+          type="checkbox" 
+          formControlName="aceitaTermos"
+          class="checkbox">
+        <span class="checkmark"></span>
+        Eu aceito os <a href="/termos" target="_blank">termos e condições</a>
+      </label>
+      
+      <div class="error-message" *ngIf="isFieldInvalid('aceitaTermos')">
+        <span>Você deve aceitar os termos e condições</span>
+      </div>
+    </div>
+
+    <!-- Botões -->
+    <div class="form-actions">
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        [disabled]="cadastroForm.invalid || isSubmitting">
+        <span *ngIf="isSubmitting" class="spinner"></span>
+        {{ isSubmitting ? 'Cadastrando...' : 'Cadastrar' }}
+      </button>
+      
+      <button 
+        type="button" 
+        class="btn btn-secondary"
+        (click)="limparFormulario()">
+        Limpar
+      </button>
+    </div>
+
+    <!-- Link para login -->
+    <div class="form-footer">
+      <p>Já tem uma conta? <a routerLink="/login">Faça login aqui</a></p>
+    </div>
+  </form>
+</div>

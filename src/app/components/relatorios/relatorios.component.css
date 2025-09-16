@@ -1,0 +1,255 @@
+/* ===================================
+   TEMA LARANJA PARA RELATÓRIOS
+   =================================== */
+
+/* Botões primários laranjas */
+.btn-primary {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #e55a2b 0%, #e57938 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.btn-primary:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+}
+
+/* ===================================
+   CARDS E COMPONENTES
+   =================================== */
+
+/* Cards de estatísticas */
+.border-left-primary {
+  border-left: 4px solid var(--bs-primary) !important;
+}
+
+.stat-card-icon {
+  font-size: 2rem;
+  opacity: 0.7;
+  color: var(--bs-primary);
+}
+
+.stat-card-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--bs-primary);
+  line-height: 1;
+}
+
+/* Navegação por abas */
+.nav-tabs {
+  border-bottom: 2px solid var(--bs-primary);
+}
+
+.nav-tabs .nav-link {
+  color: var(--bs-dark);
+  font-weight: 500;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 1rem 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  border-color: transparent;
+  background-color: rgba(255, 107, 53, 0.1);
+  color: var(--bs-primary);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--bs-primary);
+  background-color: transparent;
+  border-bottom-color: var(--bs-primary);
+  font-weight: 600;
+}
+
+/* Placeholder para gráficos */
+.chart-placeholder {
+  height: 300px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.chart-placeholder:hover {
+  border-color: var(--bs-primary);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.05) 0%, rgba(255, 107, 53, 0.1) 100%);
+}
+
+.chart-placeholder i {
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.chart-placeholder:hover i {
+  opacity: 0.8;
+  color: var(--bs-primary);
+}
+
+/* Tabelas customizadas */
+.table th {
+  background-color: var(--bs-light) !important;
+  border-bottom: 2px solid var(--bs-primary);
+  font-weight: 600;
+  color: var(--bs-dark);
+  white-space: nowrap;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(255, 107, 53, 0.05);
+}
+
+/* Cards de produtos top */
+.card.border-left-primary {
+  border-left-width: 4px !important;
+  border-left-color: var(--bs-primary) !important;
+}
+
+/* Badges customizados */
+.badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.badge.fs-6 {
+  font-size: 1rem !important;
+  padding: 0.5rem;
+  min-width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+/* Estados de loading */
+.spinner-custom {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--bs-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Alertas customizados */
+.alert-warning {
+  border-left: 4px solid var(--bs-warning);
+}
+
+.alert-warning .alert-heading {
+  color: var(--bs-warning);
+}
+
+/* Cards de resumo */
+.bg-light {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .stat-card-value {
+    font-size: 1.5rem;
+  }
+  
+  .stat-card-icon {
+    font-size: 1.5rem;
+  }
+  
+  .nav-tabs .nav-link {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .chart-placeholder {
+    height: 200px;
+  }
+  
+  .chart-placeholder .display-1 {
+    font-size: 3rem;
+  }
+  
+  .table-responsive {
+    font-size: 0.9rem;
+  }
+  
+  .badge.fs-6 {
+    font-size: 0.8rem !important;
+    min-width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+/* Animações suaves */
+.card-custom {
+  transition: all 0.3s ease;
+}
+
+.card-custom:hover {
+  transform: translateY(-2px);
+}
+
+.shadow-hover:hover {
+  box-shadow: 0 0.5rem 1rem rgba(255, 107, 53, 0.15) !important;
+}
+
+/* Estilos para boxes de filtros clicáveis */
+.filter-box {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-box:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.filter-box:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(253, 126, 20, 0.25) !important;
+}
+
+/* Dropdown customizado */
+.dropdown-menu {
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+
+.dropdown-item {
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background-color: rgba(255, 107, 53, 0.1);
+  color: var(--bs-primary);
+  transform: translateX(5px);
+}
+
+.dropdown-item i {
+  width: 20px;
+  text-align: center;
+}

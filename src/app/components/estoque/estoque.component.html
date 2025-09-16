@@ -1,0 +1,413 @@
+<div class="page-container">
+  <div class="container-fluid">
+    
+    <!-- Header -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="h2 text-primary mb-1">
+              <i class="bi bi-boxes me-2"></i>
+              Controle de Estoque
+            </h1>
+            <p class="text-muted mb-0">Monitore e gerencie seu estoque</p>
+          </div>
+          <button 
+            class="btn btn-primary btn-custom" 
+            (click)="toggleMovimentacaoForm()">
+            <i class="bi bi-arrow-left-right me-2"></i>
+            {{ showMovimentacaoForm ? 'Cancelar' : 'Nova Movimentação' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alertas -->
+    <div class="row" *ngIf="errorMessage || successMessage">
+      <div class="col-12">
+        <div *ngIf="errorMessage" class="alert alert-danger alert-dismissible fade show">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ errorMessage }}
+          <button type="button" class="btn-close" (click)="clearMessages()"></button>
+        </div>
+        <div *ngIf="successMessage" class="alert alert-success alert-dismissible fade show">
+          <i class="bi bi-check-circle me-2"></i>
+          {{ successMessage }}
+          <button type="button" class="btn-close" (click)="clearMessages()"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estatísticas do Estoque -->
+    <div class="row g-4 mb-4">
+      
+      <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card card-custom border-left-primary h-100 shadow-hover filter-box"
+             [class.active-filter]="isBoxActive('todos')"
+             (click)="aplicarFiltroTodos()"
+             role="button"
+             tabindex="0"
+             title="Clique para filtrar todos os produtos">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="card-title text-uppercase text-muted small fw-bold m-0">Total de Produtos</h6>
+              <i class="bi bi-boxes stat-card-icon"></i>
+            </div>
+            <div class="stat-card-value">{{ stats.totalProdutos }}</div>
+            <div class="small text-muted">
+              Produtos cadastrados
+              <i class="bi bi-funnel ms-1" *ngIf="isBoxActive('todos')"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card card-custom border-left-primary h-100 shadow-hover filter-box"
+             [class.active-filter]="isBoxActive('estoque-baixo')"
+             [class.warning-filter]="isBoxActive('estoque-baixo')"
+             (click)="aplicarFiltroEstoqueBaixo()"
+             role="button"
+             tabindex="0"
+             title="Clique para filtrar produtos com estoque baixo">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="card-title text-uppercase text-muted small fw-bold m-0">Estoque Baixo</h6>
+              <i class="bi bi-exclamation-triangle stat-card-icon text-warning"></i>
+            </div>
+            <div class="stat-card-value text-warning">{{ stats.produtosEstoqueBaixo }}</div>
+            <div class="small text-muted">
+              Produtos com estoque baixo
+              <i class="bi bi-funnel ms-1" *ngIf="isBoxActive('estoque-baixo')"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card card-custom border-left-primary h-100 shadow-hover filter-box"
+             [class.active-filter]="isBoxActive('sem-estoque')"
+             [class.danger-filter]="isBoxActive('sem-estoque')"
+             (click)="aplicarFiltroSemEstoque()"
+             role="button"
+             tabindex="0"
+             title="Clique para filtrar produtos sem estoque">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="card-title text-uppercase text-muted small fw-bold m-0">Sem Estoque</h6>
+              <i class="bi bi-x-circle stat-card-icon text-danger"></i>
+            </div>
+            <div class="stat-card-value text-danger">{{ stats.produtosSemEstoque }}</div>
+            <div class="small text-muted">
+              Produtos zerados
+              <i class="bi bi-funnel ms-1" *ngIf="isBoxActive('sem-estoque')"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card card-custom h-100 shadow-hover">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="card-title text-uppercase text-muted small fw-bold m-0">Valor Total</h6>
+              <i class="bi bi-currency-dollar stat-card-icon text-success"></i>
+            </div>
+            <div class="stat-card-value text-success">{{ formatarMoeda(stats.valorTotalEstoque) }}</div>
+            <div class="small text-muted">Valor em estoque</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Formulário de Movimentação -->
+    <div class="row mb-4" *ngIf="showMovimentacaoForm">
+      <div class="col-12">
+        <div class="card card-custom shadow-custom slide-up">
+          <div class="card-header bg-gradient-primary text-white">
+            <h5 class="card-title mb-0">
+              <i class="bi bi-arrow-left-right me-2"></i>
+              Nova Movimentação de Estoque
+            </h5>
+          </div>
+          <div class="card-body">
+            <form [formGroup]="movimentacaoForm" (ngSubmit)="onSubmitMovimentacao()">
+              
+              <div class="row g-3">
+                
+                <!-- Produto -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Produto *</label>
+                  <select 
+                    class="form-select form-control-custom"
+                    formControlName="produtoId"
+                    [class.is-invalid]="movimentacaoForm.get('produtoId')?.invalid && movimentacaoForm.get('produtoId')?.touched">
+                    <option value="">Selecione um produto</option>
+                    <option *ngFor="let produto of produtos" [value]="produto.id">
+                      {{ produto.nome }} (Atual: {{ produto.quantidade }})
+                    </option>
+                  </select>
+                  <div class="invalid-feedback">
+                    {{ getErrorMessage('produtoId') }}
+                  </div>
+                </div>
+
+                <!-- Tipo de Movimentação -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Tipo de Movimentação *</label>
+                  <select 
+                    class="form-select form-control-custom"
+                    formControlName="tipo"
+                    [class.is-invalid]="movimentacaoForm.get('tipo')?.invalid && movimentacaoForm.get('tipo')?.touched">
+                    <option value="ENTRADA">
+                      <i class="bi bi-plus-circle"></i> Entrada (Adicionar ao estoque)
+                    </option>
+                    <option value="SAIDA">
+                      <i class="bi bi-dash-circle"></i> Saída (Remover do estoque)
+                    </option>
+                  </select>
+                  <div class="invalid-feedback">
+                    {{ getErrorMessage('tipo') }}
+                  </div>
+                </div>
+
+                <!-- Quantidade -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Quantidade *</label>
+                  <input 
+                    type="number" 
+                    class="form-control form-control-custom"
+                    formControlName="quantidade"
+                    placeholder="Digite a quantidade"
+                    min="1"
+                    [class.is-invalid]="movimentacaoForm.get('quantidade')?.invalid && movimentacaoForm.get('quantidade')?.touched">
+                  <div class="invalid-feedback">
+                    {{ getErrorMessage('quantidade') }}
+                  </div>
+                </div>
+
+                <!-- Motivo -->
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Motivo *</label>
+                  <input 
+                    type="text" 
+                    class="form-control form-control-custom"
+                    formControlName="motivo"
+                    placeholder="Ex: Compra, Venda, Ajuste de inventário"
+                    [class.is-invalid]="movimentacaoForm.get('motivo')?.invalid && movimentacaoForm.get('motivo')?.touched">
+                  <div class="invalid-feedback">
+                    {{ getErrorMessage('motivo') }}
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Botões -->
+              <div class="d-flex gap-2 justify-content-end mt-4">
+                <button 
+                  type="button" 
+                  class="btn btn-outline-secondary" 
+                  (click)="resetMovimentacaoForm()">
+                  <i class="bi bi-x-circle me-1"></i>
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  class="btn btn-primary btn-custom"
+                  [disabled]="movimentacaoForm.invalid || isLoading">
+                  <div *ngIf="isLoading" class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    <span>Processando...</span>
+                  </div>
+                  <div *ngIf="!isLoading" class="d-flex align-items-center">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <span>Registrar Movimentação</span>
+                  </div>
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card card-custom">
+          <div class="card-body">
+            <div class="row g-3 align-items-end">
+              
+              <!-- Busca -->
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Buscar Produto</label>
+                <div class="input-group">
+                  <span class="input-group-text">
+                    <i class="bi bi-search text-primary"></i>
+                  </span>
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    [(ngModel)]="searchTerm"
+                    placeholder="Digite o nome do produto">
+                </div>
+              </div>
+
+              <!-- Categoria -->
+              <div class="col-12 col-md-3">
+                <label class="form-label fw-semibold">Categoria</label>
+                <select class="form-select" [(ngModel)]="selectedCategory">
+                  <option value="">Todas</option>
+                  <option *ngFor="let categoria of categories" [value]="categoria">
+                    {{ categoria }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Status -->
+              <div class="col-12 col-md-3">
+                <label class="form-label fw-semibold">Status do Estoque</label>
+                <select class="form-select" [(ngModel)]="statusFilter">
+                  <option value="">Todos</option>
+                  <option value="em-estoque">Em Estoque</option>
+                  <option value="estoque-baixo">Estoque Baixo</option>
+                  <option value="sem-estoque">Sem Estoque</option>
+                </select>
+              </div>
+
+              <!-- Limpar -->
+              <div class="col-12 col-md-2">
+                <button 
+                  class="btn btn-outline-secondary w-100" 
+                  (click)="limparTodosFiltros()">
+                  <i class="bi bi-x-circle me-1"></i>
+                  Limpar Filtros
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Produtos -->
+    <div class="row">
+      <div class="col-12">
+        
+        <!-- Indicador de Filtros Ativos -->
+        <div *ngIf="activeFilterBox" class="mb-3">
+          <div class="alert alert-info alert-dismissible fade show d-flex align-items-center">
+            <i class="bi bi-funnel me-2"></i>
+            <span class="me-auto">
+              <strong>Filtro ativo:</strong>
+              <span *ngIf="activeFilterBox === 'todos'">Todos os produtos</span>
+              <span *ngIf="activeFilterBox === 'estoque-baixo'">Produtos com estoque baixo</span>
+              <span *ngIf="activeFilterBox === 'sem-estoque'">Produtos sem estoque</span>
+              <small class="text-muted ms-1">({{ getFilteredProducts().length }} {{ getFilteredProducts().length === 1 ? 'produto' : 'produtos' }})</small>
+            </span>
+            <button type="button" class="btn-close" (click)="limparTodosFiltros()"></button>
+          </div>
+        </div>
+        
+        <!-- Loading -->
+        <div *ngIf="isLoading && !showMovimentacaoForm" class="text-center py-5">
+          <div class="spinner-custom mb-3"></div>
+          <p class="text-muted">Carregando estoque...</p>
+        </div>
+
+        <!-- Cards de Produtos -->
+        <div *ngIf="!isLoading" class="row g-4">
+          
+          <!-- Estado vazio -->
+          <div *ngIf="getFilteredProducts().length === 0" class="col-12">
+            <div class="card card-custom text-center py-5">
+              <div class="card-body">
+                <i class="bi bi-boxes display-4 text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum produto encontrado</h5>
+                <p class="text-muted">
+                  {{ produtos.length === 0 ? 'Cadastre produtos para controlar o estoque.' : 'Ajuste os filtros para encontrar produtos.' }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cards dos Produtos -->
+          <div *ngFor="let produto of getFilteredProducts()" class="col-12 col-md-6 col-lg-4">
+            <div class="card card-custom h-100 shadow-hover">
+              <div class="card-body">
+                
+                <!-- Header do Card -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <div class="flex-grow-1">
+                    <h6 class="card-title fw-bold mb-1">{{ produto.nome }}</h6>
+                    <span class="badge bg-light text-dark small">{{ produto.categoria }}</span>
+                  </div>
+                  <span [class]="'badge ' + getStatusBadgeClass(produto)">
+                    {{ getStatusText(produto) }}
+                  </span>
+                </div>
+
+                <!-- Informações do Produto -->
+                <div class="mb-3">
+                  <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>Estoque Atual</span>
+                    <span>Mínimo: {{ produto.quantidadeMinima }}</span>
+                  </div>
+                  
+                  <!-- Barra de Progresso -->
+                  <div class="progress mb-2" style="height: 8px;">
+                    <div 
+                      [class]="'progress-bar ' + getProgressClass(produto)"
+                      [style.width.%]="getProgressPercentage(produto)">
+                    </div>
+                  </div>
+                  
+                  <div class="d-flex justify-content-between">
+                    <span class="fw-bold fs-5">{{ produto.quantidade }}</span>
+                    <span class="text-success fw-semibold">{{ formatarMoeda(produto.preco) }}</span>
+                  </div>
+                </div>
+
+                <!-- Valor Total -->
+                <div class="d-flex justify-content-between align-items-center">
+                  <small class="text-muted">Valor em estoque:</small>
+                  <span class="fw-bold text-success">
+                    {{ formatarMoeda((produto.quantidade || produto.estoque || 0) * produto.preco) }}
+                  </span>
+                </div>
+
+              </div>
+
+              <!-- Footer com Ações -->
+              <div class="card-footer bg-light">
+                <div class="d-flex gap-2">
+                  <button 
+                    class="btn btn-outline-primary btn-sm flex-fill"
+                    (click)="entradaRapida(produto)"
+                    title="Adicionar produtos ao estoque">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Entrada
+                  </button>
+                  <button 
+                    class="btn btn-outline-danger btn-sm flex-fill"
+                    (click)="saidaRapida(produto)"
+                    title="Remover produtos do estoque">
+                    <i class="bi bi-dash-circle me-1"></i>
+                    Saída
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>

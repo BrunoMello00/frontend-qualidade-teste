@@ -1,0 +1,278 @@
+.configuracoes-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Navegação de tabs - CORRIGIDO */
+.list-group-item.active {
+  background-color: #ffc107 !important; /* Laranja/amarelo em vez de azul */
+  border-color: #ffc107 !important;
+  color: #000 !important; /* Texto preto para contraste com laranja */
+}
+
+.list-group-item:hover {
+  background-color: rgba(255, 193, 7, 0.1) !important; /* Laranja claro transparente */
+  color: #495057 !important; /* Texto escuro para contraste */
+}
+
+.list-group-item {
+  color: #495057; /* Garantir cor do texto em estado normal */
+  border: none; /* Remover bordas para visual mais limpo */
+}
+
+.list-group-item:not(.active):hover {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+  color: #495057 !important;
+}
+
+/* Estilos adicionais para melhor visualização */
+.list-group-item {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.list-group-item:focus {
+  background-color: #e9ecef !important;
+  color: #495057 !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+/* Cabeçalho personalizado para categorias */
+.card-header.bg-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%) !important;
+  border-bottom: 2px solid #ffb300;
+}
+
+/* Cabeçalho laranja personalizado */
+.bg-orange {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
+  border-bottom: 2px solid #ff6b35;
+  color: #ffffff !important;
+}
+
+/* Background claro para o corpo dos cards */
+.card-body.bg-light {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+}
+
+/* Melhorar a aparência do card de navegação */
+.card {
+  border: 1px solid #dee2e6;
+}
+
+/* Adicionar separação visual entre botões */
+.list-group-item + .list-group-item {
+  border-top: 1px solid #dee2e6;
+}
+
+/* Estilo para ícones nos botões de navegação */
+.list-group-item i {
+  opacity: 0.8;
+}
+
+.list-group-item.active i {
+  opacity: 1;
+}
+
+/* Suporte a temas */
+body.tema-escuro .configuracoes-container {
+  background-color: #1a1a1a;
+  color: #e9ecef;
+}
+
+body.tema-escuro .card {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+body.tema-escuro .card-header {
+  border-color: #404040;
+}
+
+body.tema-escuro .list-group-item {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: #e9ecef;
+}
+
+body.tema-escuro .list-group-item:hover {
+  background-color: #404040 !important;
+  color: #ffffff !important;
+}
+
+body.tema-escuro .form-control,
+body.tema-escuro .form-select {
+  background-color: #404040;
+  border-color: #595959;
+  color: #e9ecef;
+}
+
+body.tema-escuro .form-control:focus,
+body.tema-escuro .form-select:focus {
+  background-color: #4a4a4a;
+  border-color: #0d6efd;
+  color: #ffffff;
+}
+
+/* Toast personalizado */
+.toast {
+  min-width: 300px;
+  backdrop-filter: blur(10px);
+}
+
+/* Animação para mudança de configurações */
+.config-changed {
+  animation: configPulse 0.6s ease-in-out;
+}
+
+@keyframes configPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Setup do MFA */
+.mfa-setup {
+  background: linear-gradient(135deg, #ffffff 0%, #fff3cd 100%);
+  border: 2px solid #ffc107;
+  border-radius: 0.375rem;
+  padding: 2rem;
+  margin-top: 1rem;
+}
+
+.method-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.method-card:hover {
+  border-color: #ffc107;
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(255, 193, 7, 0.3);
+}
+
+.method-card .card-body {
+  padding: 2rem 1rem;
+}
+
+/* Animações */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Form controls */
+.form-check-input:checked {
+  background-color: #ffc107;
+  border-color: #ffc107;
+}
+
+.form-select:focus,
+.form-control:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+/* Botões com padrão laranja */
+.btn-primary {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.btn-primary:hover {
+  background-color: #ffb300;
+  border-color: #ffb300;
+  color: #000;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Badges customizados */
+.badge {
+  font-size: 0.75rem;
+  padding: 0.5rem 1rem;
+}
+
+/* Cards de zona de perigo */
+.border-danger {
+  border-color: #dc3545 !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .configuracoes-container .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .mfa-setup {
+    padding: 1rem;
+  }
+  
+  .method-card .card-body {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* Estados de loading */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Cards de método MFA */
+.method-card .display-4 {
+  font-size: 3rem;
+}
+
+/* Input de código de verificação */
+input[type="text"].text-center {
+  font-family: 'Courier New', monospace;
+}
+
+/* Alertas customizados */
+.alert {
+  border: none;
+  border-radius: 0.5rem;
+}
+
+.alert-success {
+  background-color: #d1edff;
+  color: #0c5460;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
