@@ -48,37 +48,37 @@ export class EventosService extends BaseService {
   }
 
   listarEventos(page: number = 0, size: number = 50, search?: string, tipo?: string, status?: string): Observable<any> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.listarEventos(page, size, search, tipo, status) as Observable<any>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.listarEventos(page, size, search, tipo, status) as Observable<any>;
     return this.get<Evento[]>('eventos', { page: page.toString(), size: size.toString(), search: search || '', tipo: tipo || '', status: status || '' });
   }
 
   criarEvento(evento: Evento): Observable<Evento> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.criarEvento(evento) as Observable<Evento>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.criarEvento(evento) as Observable<Evento>;
     return this.post<Evento>('eventos', evento);
   }
 
   atualizarEvento(id: number, evento: Evento): Observable<Evento> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.atualizarEvento(Number(id), evento) as Observable<Evento>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.atualizarEvento(Number(id), evento) as Observable<Evento>;
     return this.put<Evento>(`eventos/${id}`, evento);
   }
 
   excluirEvento(id: number): Observable<void> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.excluirEvento(Number(id)).pipe() as Observable<any>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.excluirEvento(Number(id)).pipe() as Observable<any>;
     return this.delete<void>(`eventos/${id}`);
   }
 
   alterarStatusEvento(id: number, status: string): Observable<Evento> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.alterarStatusEvento(Number(id), status) as Observable<Evento>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.alterarStatusEvento(Number(id), status) as Observable<Evento>;
     return this.put<Evento>(`eventos/${id}/status`, { status });
   }
 
   buscarPorTipo(tipo: string): Observable<Evento[]> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.buscarPorTipo(tipo) as Observable<Evento[]>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.buscarPorTipo(tipo) as Observable<Evento[]>;
     return this.get<Evento[]>(`eventos/tipo/${tipo}`);
   }
 
   buscarPorPeriodo(dataInicio: Date, dataFim: Date): Observable<Evento[]> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.buscarPorPeriodo(dataInicio.toISOString(), dataFim.toISOString()) as Observable<Evento[]>;
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.buscarPorPeriodo(dataInicio.toISOString(), dataFim.toISOString()) as Observable<Evento[]>;
     return this.get<Evento[]>('eventos/periodo', {
       dataInicio: dataInicio.toISOString(),
       dataFim: dataFim.toISOString()

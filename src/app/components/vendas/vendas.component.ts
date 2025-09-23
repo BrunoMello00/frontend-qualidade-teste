@@ -740,8 +740,14 @@ export class VendasComponent implements OnInit {
             }
             
             this.resetVendaForm();
-            this.loadVendas();
-            this.loadStats();
+              this.loadVendas();
+              this.loadStats();
+              // Recarregar lista de produtos para refletir alterações de estoque feitas pela venda (mock)
+              try {
+                this.loadProdutos();
+              } catch (e) {
+                // ignore
+              }
             this.isLoading = false;
           },
           error: (error: any) => {

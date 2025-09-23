@@ -557,11 +557,11 @@ export class MockDataService {
   getTopProdutos(limit = 5): Observable<any[]> {
     const d = randomDelay();
     const top = [
-      { produtoId: 'p1', produtoNome: 'Vestido Floral', categoria: 'Roupas', quantidadeVendida: 23, valorTotal: 1150.00, percentualVendas: 12.0 },
-      { produtoId: 'p2', produtoNome: 'Camisa Polo', categoria: 'Roupas', quantidadeVendida: 18, valorTotal: 900.00, percentualVendas: 9.4 },
-      { produtoId: 'p3', produtoNome: 'Tênis Casual', categoria: 'Calçados', quantidadeVendida: 15, valorTotal: 1500.00, percentualVendas: 8.1 },
-      { produtoId: 'p4', produtoNome: 'Calça Jeans', categoria: 'Roupas', quantidadeVendida: 12, valorTotal: 720.00, percentualVendas: 6.5 },
-      { produtoId: 'p5', produtoNome: 'Jaqueta', categoria: 'Roupas', quantidadeVendida: 9, valorTotal: 810.00, percentualVendas: 4.8 }
+      { produtoId: 1, produtoNome: 'Vestido Floral', categoria: 'Roupas', quantidadeVendida: 23, valorTotal: 1150.00, percentualVendas: 12.0 },
+      { produtoId: 2, produtoNome: 'Camisa Polo', categoria: 'Roupas', quantidadeVendida: 18, valorTotal: 900.00, percentualVendas: 9.4 },
+      { produtoId: 3, produtoNome: 'Tênis Casual', categoria: 'Calçados', quantidadeVendida: 15, valorTotal: 1500.00, percentualVendas: 8.1 },
+      { produtoId: 4, produtoNome: 'Calça Jeans', categoria: 'Roupas', quantidadeVendida: 12, valorTotal: 720.00, percentualVendas: 6.5 },
+      { produtoId: 5, produtoNome: 'Jaqueta', categoria: 'Roupas', quantidadeVendida: 9, valorTotal: 810.00, percentualVendas: 4.8 }
     ];
     return of(top.slice(0, limit)).pipe(delay(d));
   }

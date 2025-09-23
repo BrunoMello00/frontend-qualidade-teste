@@ -54,7 +54,7 @@ export class PasswordValidationService extends BaseService {
   }
 
   validarSenha(senha: string): Observable<PasswordValidationResponse> {
-    if (this.environmentService && this.environmentService.isLocal && this.environmentService.isLocal()) {
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
       const local = this.validatePasswordLocally(senha);
       return of({ valid: local.isValid, errors: local.erros || [] });
     }
@@ -62,7 +62,7 @@ export class PasswordValidationService extends BaseService {
   }
 
   analisarForcaSenha(senha: string): Observable<PasswordStrengthResponse> {
-    if (this.environmentService && this.environmentService.isLocal && this.environmentService.isLocal()) {
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
       return of(this.validatePasswordLocally(senha));
     }
     return this.post<PasswordStrengthResponse>('password/analise', { senha });
@@ -73,7 +73,7 @@ export class PasswordValidationService extends BaseService {
   }
 
   validarNovaSenha(senhaAtual: string, novaSenha: string): Observable<PasswordValidationResponse> {
-    if (this.environmentService && this.environmentService.isLocal && this.environmentService.isLocal()) {
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
       const local = this.validatePasswordLocally(novaSenha);
       return of({ valid: local.isValid, errors: local.erros || [] });
     }
@@ -162,7 +162,7 @@ export class PasswordValidationService extends BaseService {
   }
 
   generateStrongPassword(length: number): Observable<{ password: string; senha: string }> {
-    if (this.environmentService && this.environmentService.isLocal && this.environmentService.isLocal()) {
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
       // gerar senha forte localmente
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
       let pwd = '';

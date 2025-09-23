@@ -192,13 +192,13 @@ export class DashboardComponent implements OnInit {
       const current = start + (end - start) * progress;
       // atribui valor formatado se for vendas
       if (key === 'vendasMes') {
-        // Atualiza stats temporariamente para efeito
-        if (this.stats) this.stats.vendasMes = { valor: current };
+        // Atualiza stats temporariamente para efeito — manter como número para evitar NaN no template
+        if (this.stats) this.stats.vendasMes = Number(current);
       }
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        if (this.stats) this.stats.vendasMes = { valor: end };
+        if (this.stats) this.stats.vendasMes = Number(end);
       }
     };
     requestAnimationFrame(animate);

@@ -96,7 +96,7 @@ export class VendaService extends BaseService {
   }
 
   listarVendas(page: number = 0, size: number = 10, dataInicio?: string | Date, dataFim?: string | Date, status?: string, vendedorId?: string): Observable<VendaResponse> {
-  if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.listarVendas(page, size, dataInicio, dataFim, status, vendedorId);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.listarVendas(page, size, dataInicio, dataFim, status, vendedorId);
     const params: any = { page, size };
     if (dataInicio) params.dataInicio = dataInicio;
     if (dataFim) params.dataFim = dataFim;
@@ -106,27 +106,27 @@ export class VendaService extends BaseService {
   }
 
   buscarPorId(id: number): Observable<Venda> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.buscarVendaPorId(Number(id));
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.buscarVendaPorId(Number(id));
     return this.get<Venda>(`/vendas/${id}`);
   }
 
   criarVenda(venda: CriarVendaRequest): Observable<Venda> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.criarVenda(venda);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.criarVenda(venda);
     return this.post<Venda>('/vendas', venda);
   }
 
   confirmarVenda(id: number): Observable<any> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.confirmarVenda(Number(id));
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.confirmarVenda(Number(id));
     return this.post<any>(`/vendas/${id}/confirmar`, {});
   }
 
   cancelarVenda(id: number, motivo?: string): Observable<any> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.cancelarVenda(Number(id), motivo);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.cancelarVenda(Number(id), motivo);
     return this.post<any>(`/vendas/${id}/cancelar`, { motivo });
   }
 
   obterEstatisticasVendas(vendedorId?: string, dataInicio?: string | Date, dataFim?: string | Date): Observable<EstatisticasVenda> {
-  if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.obterEstatisticasVendas(vendedorId, dataInicio, dataFim);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.obterEstatisticasVendas(vendedorId, dataInicio, dataFim);
     const params: any = {};
     if (vendedorId) params.vendedorId = vendedorId;
     if (dataInicio) params.dataInicio = dataInicio;
@@ -135,12 +135,12 @@ export class VendaService extends BaseService {
   }
 
   obterTopProdutos(limit: number = 10): Observable<TopProdutoResponse[]> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.obterVendasRecentes(limit).pipe(map((arr: any[]) => arr.map(a => ({ produtoId: a.id, produtoNome: a.clienteNome || '', quantidadeVendida: 1, valorTotal: a.total || 0 }))));
+    if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.getTopProdutos(limit) as Observable<TopProdutoResponse[]>;
     return this.get<TopProdutoResponse[]>('/vendas/top-produtos', { limit: String(limit) } as any);
   }
 
   obterVendasRecentes(limit: number = 10): Observable<Venda[]> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.obterVendasRecentes(limit);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.obterVendasRecentes(limit);
     return this.get<Venda[]>(`/vendas/recentes`, { limit: String(limit) } as any);
   }
 
@@ -150,7 +150,7 @@ export class VendaService extends BaseService {
   }
 
   atualizarStatusVenda(id: number, status: string, observacoes?: string): Observable<any> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.atualizarStatusVenda(Number(id), status, observacoes);
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.atualizarStatusVenda(Number(id), status, observacoes);
     return this.patch<any>(`/vendas/${id}/status`, { status, observacoes });
   }
 }

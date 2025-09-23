@@ -51,7 +51,8 @@ export class ClientesComponent implements OnInit {
   }
 
   loadClientes(): void {
-    this.clienteService.listarClientes().subscribe(response => {
+    // Pedir apenas clientes ativos — o mock faz soft-delete (ativo=false)
+    this.clienteService.listarClientes(0, 20, undefined, undefined, true).subscribe(response => {
       this.clientes = response.content;
     });
   }

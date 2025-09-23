@@ -101,44 +101,44 @@ export class UsuarioService extends BaseService {
     if (orderBy) params.orderBy = orderBy;
     if (orderDirection) params.orderDirection = orderDirection;
     
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.listarUsuarios(page, limit, termo, tipoUsuario, status) as unknown as Observable<UsuarioResponse>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.listarUsuarios(page, limit, termo, tipoUsuario, status) as unknown as Observable<UsuarioResponse>;
     return this.get<UsuarioResponse>('/usuarios', params);
   }
 
   buscarPorId(id: string): Observable<Usuario> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.buscarUsuarioPorId(id) as unknown as Observable<Usuario>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.buscarUsuarioPorId(id) as unknown as Observable<Usuario>;
     return this.get<Usuario>(`/usuarios/${id}`);
   }
 
   criarUsuario(usuario: CriarUsuarioRequest): Observable<Usuario> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.criarUsuario(usuario) as unknown as Observable<Usuario>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.criarUsuario(usuario) as unknown as Observable<Usuario>;
     return this.post<Usuario>('/usuarios', usuario);
   }
 
   atualizarUsuario(id: string, usuario: CriarUsuarioRequest): Observable<Usuario> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.atualizarUsuario(id, usuario) as unknown as Observable<Usuario>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.atualizarUsuario(id, usuario) as unknown as Observable<Usuario>;
     return this.put<Usuario>(`/usuarios/${id}`, usuario);
   }
 
   excluirUsuario(id: string): Observable<{ success: boolean; message: string }> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.excluirUsuario(id) as unknown as Observable<{ success: boolean; message: string }>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.excluirUsuario(id) as unknown as Observable<{ success: boolean; message: string }>;
     return this.delete<{ success: boolean; message: string }>(`/usuarios/${id}`);
   }
 
   // Operações de Status
   desativarUsuario(id: string): Observable<Usuario> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.desativarUsuario(id) as Observable<Usuario>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.desativarUsuario(id) as Observable<Usuario>;
     return this.patch<Usuario>(`/usuarios/${id}/desativar`);
   }
 
   reativarUsuario(id: string): Observable<Usuario> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.reativarUsuario(id) as Observable<Usuario>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.reativarUsuario(id) as Observable<Usuario>;
     return this.patch<Usuario>(`/usuarios/${id}/reativar`);
   }
 
   // Convite por Email
   enviarConvite(usuario: CriarUsuarioRequest): Observable<{ success: boolean; message: string }> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.enviarConvite ? this.mock.enviarConvite(usuario) : new Observable(observer => { observer.next({ success: true, message: 'Convite enviado (mock)'}); observer.complete(); }) as any;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.enviarConvite ? this.mock.enviarConvite(usuario) : new Observable(observer => { observer.next({ success: true, message: 'Convite enviado (mock)'}); observer.complete(); }) as any;
     return this.post<{ success: boolean; message: string }>('/usuarios/convite', usuario);
   }
 
@@ -151,18 +151,18 @@ export class UsuarioService extends BaseService {
     const params: any = { apenasAtivos };
     if (ano) params.ano = ano;
     if (mes) params.mes = mes;
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.obterEstatisticasVendedores(ano, mes, apenasAtivos) as unknown as Observable<EstatisticasVendedor[]>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.obterEstatisticasVendedores(ano, mes, apenasAtivos) as unknown as Observable<EstatisticasVendedor[]>;
     return this.get<EstatisticasVendedor[]>('/usuarios/estatisticas-vendedores', params);
   }
 
   // Permissões
   obterPermissoes(id: string): Observable<Permissao[]> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.obterPermissoes(id) as Observable<Permissao[]>;
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.obterPermissoes(id) as Observable<Permissao[]>;
     return this.get<Permissao[]>(`/usuarios/${id}/permissoes`);
   }
 
   atualizarPermissao(id: string, permissaoId: string, concedida: boolean): Observable<{ success: boolean; message: string }> {
-    if (this.environmentService.isLocal && this.environmentService.isLocal()) return this.mock.atualizarPermissao ? this.mock.atualizarPermissao(id, permissaoId, concedida) : of({ success: true, message: 'Permissão atualizada (mock)' });
+  if (this.environmentService?.isLocal && this.environmentService.isLocal()) return this.mock.atualizarPermissao ? this.mock.atualizarPermissao(id, permissaoId, concedida) : of({ success: true, message: 'Permissão atualizada (mock)' });
     return this.post<{ success: boolean; message: string }>(`/usuarios/${id}/permissoes`, { permissaoId, concedida });
   }
 

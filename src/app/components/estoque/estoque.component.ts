@@ -105,10 +105,20 @@ export class EstoqueComponent implements OnInit {
       this.isLoading = true;
       const movimentacao = this.movimentacaoForm.value;
       
-      // Usar ProdutoService para atualizar estoque
+      // Calcular nova quantidade absoluta a partir da movimentação (entrada/saída)
+      const produtoAtual = this.produtos.find(p => Number(p.id) === Number(movimentacao.produtoId));
+      const quantidadeAtual = Number(produtoAtual?.quantidade ?? produtoAtual?.estoque ?? 0);
+      let novaQuantidade = quantidadeAtual;
+      if (movimentacao.tipo === 'ENTRADA') {
+        novaQuantidade = quantidadeAtual + Number(movimentacao.quantidade || 0);
+      } else {
+        novaQuantidade = Math.max(0, quantidadeAtual - Number(movimentacao.quantidade || 0));
+      }
+
+      // Usar ProdutoService para atualizar estoque com o novo total
       this.produtoService.atualizarEstoque(
-        Number(movimentacao.produtoId), 
-        movimentacao.quantidade
+        Number(movimentacao.produtoId),
+        novaQuantidade
       ).subscribe({
         next: (resultado: any) => {
           this.successMessage = 'Movimentação registrada com sucesso!';

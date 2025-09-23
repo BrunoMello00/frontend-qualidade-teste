@@ -15,6 +15,15 @@ export class EnvironmentService {
    * Detecta automaticamente se está rodando localmente ou em produção
    */
   getApiUrl(): string {
+    // If the environment explicitly forces mock data, always use local API URL
+    try {
+      if ((environment as any).features && (environment as any).features.enableMockData) {
+        return this.localApiUrl;
+      }
+    } catch (e) {
+      // ignore and continue detection
+    }
+
     // Se environment.production for true, usar Azure
     if (environment.production) {
       return this.azureApiUrl;
