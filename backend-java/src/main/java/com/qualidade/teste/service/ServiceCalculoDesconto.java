@@ -23,7 +23,7 @@ import java.util.*;
  * Complexidade: Não é uma classe CRUD simples, possui múltiplas regras de negócio
  * e validações que podem ser testadas unitariamente.
  */
-public class ServicoCalculoDesconto {
+public class ServiceCalculoDesconto {
     
     // Dados mockados para simular configurações do sistema
     private static final Map<Cliente.TipoCliente, BigDecimal> DESCONTOS_POR_TIPO_CLIENTE = Map.of(

@@ -26,14 +26,14 @@ import java.util.stream.Collectors;
  * Complexidade: Não é uma classe CRUD simples, possui múltiplos cálculos
  * estatísticos e agregações que podem ser testadas unitariamente.
  */
-public class ServicoRelatorioVendas {
+public class ServiceRelatorioVendas {
     
     // Dados mockados para simular banco de dados
     private List<Venda> vendas;
     private Map<Long, Cliente> clientes;
     private Map<Long, Produto> produtos;
     
-    public ServicoRelatorioVendas() {
+    public ServiceRelatorioVendas() {
         inicializarDadosMockados();
     }
     

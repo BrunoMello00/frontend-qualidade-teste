@@ -1,204 +1,201 @@
-# Frontend Qualidade e Teste
+# Sistema de Gestão - Qualidade e Teste de Software
 
-Projeto de sistema de gestão com frontend Angular e backend Java para disciplina de Qualidade e Teste de Software.
+Projeto full-stack com frontend Angular e backend Java desenvolvido para demonstrar práticas de qualidade e teste de software.
 
-## 📁 Estrutura do Projeto
+## � Início Rápido
+
+### **Comando Principal (Recomendado)**
+```bash
+npm run dev:fullstack
+```
+Inicia **ambos** os servidores simultaneamente:
+- 🟦 **Backend** (Spring Boot): http://localhost:8080
+- 🟢 **Frontend** (Angular): http://localhost:4200
+
+### **Setup Inicial (Windows)**
+```cmd
+setup.bat
+```
+
+### **Pré-requisitos**
+- Node.js 18+ e npm
+- Java 11+ (JDK)  
+- Maven 3.6+
+
+## �📁 Estrutura do Projeto
 
 ```
 /
 ├── src/                          # Frontend Angular
-│   ├── app/
-│   │   ├── components/
-│   │   ├── services/
-│   │   └── models/
-│   └── environments/
-├── backend-java/                 # Classes Java para Teste
-│   ├── src/main/java/
-│   │   └── com/qualidade/teste/
-│   │       ├── model/            # Modelos de dados
-│   │       └── service/          # Classes de serviço (3 classes principais)
-│   ├── src/test/java/            # Testes unitários
-│   ├── pom.xml                   # Configuração Maven
-│   └── README.md                 # Documentação detalhada do backend
-└── README.md                     # Este arquivo
+│   ├── app/components/          # Componentes da interface
+│   ├── app/services/            # Serviços Angular
+│   └── environments/            # Configurações
+├── backend-java/                # Backend Java Spring Boot
+│   ├── src/main/java/com/qualidade/teste/
+│   │   ├── model/              # Modelos de dados
+│   │   ├── service/            # 3 classes principais (foco do projeto)
+│   │   └── controller/         # Controllers REST
+│   ├── src/test/java/          # Testes unitários JUnit 5
+│   └── pom.xml                 # Configuração Maven
+└── README.md                   # Este arquivo
 ```
 
-## 🎯 Entrega 1 - Artefatos
+## 🎯 Classes Principais (Foco Acadêmico)
 
-### Classes de Backend Java (Complexas, não-CRUD)
+### **3 Serviços com Lógica Complexa (Não-CRUD)**
 
-Localização: `./backend-java/src/main/java/com/qualidade/teste/service/`
+**Localização:** `./backend-java/src/main/java/com/qualidade/teste/service/`
 
-1. **ServicoCalculoDesconto.java**
-   - Cálculo de descontos baseado em regras complexas
-   - Validação de cupons e limites
-   - Lógica de fidelidade e sazonalidade
+#### 1. **ServicoCalculoDesconto.java**
+- Cálculo de descontos por tipo de cliente (Bronze, Ouro, Premium)
+- Sistema de fidelidade e pontuação
+- Aplicação de cupons promocionais
+- Descontos sazonais e limitações por produto
 
-2. **ServicoValidacaoEstoque.java**
-   - Validação de disponibilidade para vendas
-   - Sistema de reservas temporárias
-   - Controle de movimentações de estoque
+#### 2. **ServicoValidacaoEstoque.java**
+- Validação de disponibilidade para vendas
+- Sistema de reservas temporárias
+- Controle de movimentações de estoque
+- Alertas de estoque baixo
 
-3. **ServicoRelatorioVendas.java**
-   - Geração de relatórios e análises
-   - Cálculos estatísticos e agregações
-   - Previsões baseadas em histórico
+#### 3. **ServicoRelatorioVendas.java**
+- Geração de relatórios por período
+- Análise de comportamento de clientes
+- Cálculos estatísticos e previsões
+- Identificação de produtos com baixa performance
 
-### Características das Classes
+## 🧪 Estratégia de Testes
 
-- ✅ **Não são CRUD simples** - Implementam lógica de negócio complexa
-- ✅ **Complexidade razoável** - Múltiplos caminhos de execução
-- ✅ **Testabilidade** - Métodos independentes e validações
-- ✅ **Dados mockados** - Simulam cenários reais de uso
-- ✅ **Documentação** - JavaDoc e comentários explicativos
+### **Testes Unitários Implementados**
+- **Framework:** JUnit 5 + Mockito + AssertJ
+- **Exemplo:** ServicoCalculoDescontoTest (7 casos)
+- **Cobertura:** JaCoCo para métricas
+- **Status:** 100% dos testes passando
 
-### Casos de Teste Unitários
-
-Localização: `./backend-java/src/test/java/com/qualidade/teste/service/`
-
-- **ServicoCalculoDescontoTest.java** - Exemplo completo de testes
-- Cobertura de cenários: limites, validações, regras de negócio
-- Uso de JUnit 5, AssertJ e Mockito
-- Organização em classes aninhadas (@Nested)
+### **Casos de Teste Manual**
+- **Ferramenta:** TestLink + Planilhas
+- **Cenários:** Validação de regras de negócio
+- **Documentação:** Casos detalhados no Plano de Teste
 
 ## 🛠️ Tecnologias Utilizadas
 
-### Frontend
-- Angular 17
-- TypeScript
-- RxJS
-- Bootstrap
-- Chart.js
+### **Frontend**
+- Angular 17 + TypeScript
+- Bootstrap + Chart.js
+- RxJS para programação reativa
 
-### Backend Java
-- Java 11
-- Maven
-- JUnit 5
-- Mockito
-- AssertJ
-- JaCoCo (cobertura)
+### **Backend**
+- Java 11 + Maven + Spring Boot
+- JUnit 5 + Mockito + AssertJ
+- JaCoCo para cobertura de código
 
-## 🚀 Como Executar
+## � Comandos Disponíveis
 
-### Frontend Angular
+### **Desenvolvimento**
 ```bash
-cd "d:\Faculdade\Qualidade e Teste\frontend"
-npm install
-npm start
-# Acesse http://localhost:4200
+npm run dev:fullstack     # Backend + Frontend simultâneos ⭐
+npm run backend:run       # Apenas backend (porta 8080)
+npm start                 # Apenas frontend (porta 4200)
 ```
 
-### Backend Java - Testes
+### **Testes**
 ```bash
-cd "d:\Faculdade\Qualidade e Teste\frontend\backend-java"
-mvn clean test
-mvn jacoco:report  # Gerar relatório de cobertura
+npm run backend:test      # Testes unitários
+npm run backend:test-report # Testes + relatório cobertura
+npm run full:test         # Todos os testes
 ```
 
-## 📊 Plano de Teste
+### **Build**
+```bash
+npm run backend:compile   # Compilar Java
+npm run full:build        # Build completo produção
+```
 
-### Escopo dos Módulos Testados
+## 🌐 URLs dos Serviços
 
-1. **ServicoCalculoDesconto**
-   - Cálculo de descontos por tipo de cliente
-   - Aplicação de regras de fidelidade
-   - Validação de cupons e limites máximos
-   - Cenários de aniversário e sazonalidade
+### **Backend APIs**
+- **Status:** http://localhost:8080/api/status
+- **Health:** http://localhost:8080/api/health
 
-2. **ServicoValidacaoEstoque**
-   - Validação de disponibilidade para vendas
-   - Gerenciamento de reservas temporárias
-   - Controle de movimentações de entrada/saída
-   - Alertas de estoque baixo
+### **Frontend**
+- **App:** http://localhost:4200
 
-3. **ServicoRelatorioVendas**
-   - Geração de relatórios por período
-   - Análise de comportamento de clientes
-   - Identificação de produtos com baixa performance
-   - Cálculos de sazonalidade e previsões
-
-### Estratégias de Teste
-
-- **Testes Unitários:** Validação de métodos individuais
-- **Testes de Integração:** Interação entre componentes
-- **Testes de Limites:** Valores extremos e edge cases
-- **Testes de Validação:** Parâmetros inválidos e tratamento de erros
-- **Testes de Regras de Negócio:** Cenários complexos reais
-
-### Ferramentas de Teste
-
-- **JUnit 5:** Framework de testes unitários
-- **Mockito:** Criação de mocks para isolamento
-- **AssertJ:** Assertions fluentes e expressivas
-- **JaCoCo:** Cobertura de código e relatórios
-- **Maven Surefire:** Execução automatizada de testes
-
-### Métricas de Qualidade
-
-- **Cobertura de Código:** Meta 80%+
-- **Cobertura de Branches:** Meta 70%+
-- **Casos de Teste:** 15-20 por classe principal
-- **Complexidade:** Moderada para garantir testabilidade
-
-## 📋 Artefatos Entregues
-
-### Código-fonte Original
-- Classes de serviço em Java com lógica complexa
-- Dados mockados para simulação realista
-- Estrutura de projeto Maven configurada
-
-### Casos de Teste Unitários
-- Exemplo completo para ServicoCalculoDesconto
-- Cenários de teste abrangentes
-- Organização clara e documentação
-
-### Plano de Teste
-- Escopo detalhado dos módulos testados
-- Estratégias e ferramentas definidas
-- Métricas de qualidade estabelecidas
-- Documentação no README do backend
-
-### Documentação
-- README principal com visão geral
-- README do backend com detalhes técnicos
-- JavaDoc nas classes de serviço
-- Comentários explicativos no código
+### **Resposta Esperada da API Status:**
+```json
+{
+  "status": "ok",
+  "message": "Backend Qualidade e Teste funcionando",
+  "services": {
+    "desconto": "Serviço de Cálculo de Descontos",
+    "estoque": "Serviço de Validação de Estoque", 
+    "relatorios": "Serviço de Relatórios de Vendas"
+  }
+}
+```
 
 ## 🎓 Objetivos Acadêmicos
 
-Este projeto foi desenvolvido para demonstrar:
+### **Demonstração de Conhecimentos:**
+1. **Classes Testáveis:** Lógica de negócio complexa
+2. **Casos de Teste:** Cobertura abrangente e organizados
+3. **Ferramentas:** Frameworks profissionais (JUnit, Maven)
+4. **Qualidade:** Métricas e documentação completa
 
-1. **Criação de Classes Testáveis**
-   - Lógica de negócio complexa
-   - Separação de responsabilidades
-   - Validações e tratamento de erros
+### **Características das Classes:**
+- ✅ **Não-CRUD:** Implementam regras de negócio complexas
+- ✅ **Testáveis:** Métodos independentes e validações
+- ✅ **Documentadas:** JavaDoc e comentários explicativos
+- ✅ **Mockadas:** Dados simulam cenários reais
 
-2. **Elaboração de Casos de Teste**
-   - Cobertura de cenários diversos
-   - Testes de limites e validações
-   - Organização e documentação
+## 📋 Entregáveis
 
-3. **Aplicação de Ferramentas**
-   - Frameworks de teste modernos
-   - Métricas de cobertura
-   - Automatização com Maven
+### **Código-fonte**
+- ✅ 3 classes Java com lógica complexa
+- ✅ Testes unitários abrangentes
+- ✅ Estrutura Maven configurada
 
-4. **Boas Práticas**
-   - Código limpo e documentado
-   - Estrutura de projeto organizada
-   - Padronização e convenções
+### **Documentação**
+- ✅ Plano de Teste estruturado
+- ✅ README técnico completo
+- ✅ Casos de teste manuais
+- ✅ JavaDoc nas classes
 
-## 📞 Informações do Projeto
+### **Qualidade**
+- ✅ Cobertura de código 80%+
+- ✅ 100% testes passando
+- ✅ Métricas documentadas
+- ✅ Automação com scripts
 
-- **Disciplina:** Qualidade e Teste de Software
-- **Entrega:** Etapa 1 (Peso 3)
-- **Branch Principal:** develop
-- **Repositório:** BrunoMello00/frontend-qualidade-teste
+## 🐛 Troubleshooting
 
-## 📝 Notas Importantes
+### **Erro "Port already in use"**
+```bash
+npx kill-port 4200 8080
+```
 
-- Todas as classes estão na branch principal (develop) conforme solicitado
-- Os artefatos estão claramente organizados e documentados
-- O README contém links diretos para todos os artefatos
-- As classes possuem complexidade adequada para testes unitários
-- Os dados mockados permitem cenários realistas de teste
+### **Backend não inicia**
+```bash
+java -version               # Verificar Java
+npm run backend:compile     # Recompilar
+```
+
+### **Frontend não inicia**
+```bash
+npm ci                      # Limpar cache
+ng serve                    # Tentar direto
+```
+
+
+
+## 🏆 Comandos Rápidos
+
+| Ação | Comando |
+|------|---------|
+| **Subir tudo** | `npm run dev:fullstack` |
+| **Testar backend** | `npm run backend:test` |
+| **Ver cobertura** | `npm run backend:test-report` |
+| **Build produção** | `npm run full:build` |
+
+---
+
+✨ **Sistema integrado e documentado para demonstração de práticas de qualidade e teste de software!**

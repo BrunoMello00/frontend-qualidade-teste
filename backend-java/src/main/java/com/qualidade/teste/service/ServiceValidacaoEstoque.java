@@ -18,14 +18,14 @@ import java.util.*;
  * Complexidade: Não é uma classe CRUD simples, possui múltiplas validações
  * e regras de negócio que podem ser testadas unitariamente.
  */
-public class ServicoValidacaoEstoque {
+public class ServiceValidacaoEstoque {
     
     // Dados mockados para simular banco de dados
     private Map<Long, Produto> repositorioProdutos;
     private Map<Long, List<MovimentacaoEstoque>> historicoMovimentacoes;
     private Map<Long, ReservaEstoque> reservasAtivas;
     
-    public ServicoValidacaoEstoque() {
+    public ServiceValidacaoEstoque() {
         this.repositorioProdutos = new HashMap<>();
         this.historicoMovimentacoes = new HashMap<>();
         this.reservasAtivas = new HashMap<>();

@@ -4,7 +4,7 @@ import com.qualidade.teste.model.Cliente;
 import com.qualidade.teste.model.Produto;
 import com.qualidade.teste.model.Venda;
 import com.qualidade.teste.model.ItemVenda;
-import com.qualidade.teste.service.ServicoCalculoDesconto.ResultadoCalculoDesconto;
+import com.qualidade.teste.service.ServiceCalculoDesconto.ResultadoCalculoDesconto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -13,9 +13,9 @@ import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.*;
 
-class ServicoCalculoDescontoTest {
+class ServiceCalculoDescontoTest {
 
-    private ServicoCalculoDesconto servico;
+    private ServiceCalculoDesconto servico;
     private Cliente cliente1;
     private Cliente cliente2;
     private Cliente cliente3;
@@ -23,7 +23,7 @@ class ServicoCalculoDescontoTest {
 
     @BeforeEach
     void setup() {
-        servico = new ServicoCalculoDesconto();
+        servico = new ServiceCalculoDesconto();
         cliente1 = new Cliente(1L, "João", "123.456.789-00", "joao@email.com", Cliente.TipoCliente.BRONZE);
         cliente1.setPontosFidelidade(100);
         cliente2 = new Cliente(2L, "Maria", "987.654.321-00", "maria@email.com", Cliente.TipoCliente.OURO);
