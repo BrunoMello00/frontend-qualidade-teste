@@ -284,6 +284,34 @@ public class ServiceValidacaoEstoque {
         return idsParaRemover.size();
     }
     
+    /**
+     * Obtém o histórico de movimentações de um produto específico.
+     * 
+     * @param produtoId ID do produto
+     * @return Lista de movimentações do produto
+     */
+    public List<MovimentacaoEstoque> obterHistoricoMovimentacoes(Long produtoId) {
+        if (produtoId == null) {
+            return Collections.emptyList();
+        }
+        
+        List<MovimentacaoEstoque> movimentacoes = historicoMovimentacoes.get(produtoId);
+        return movimentacoes != null ? new ArrayList<>(movimentacoes) : Collections.emptyList();
+    }
+    
+    /**
+     * Obtém o histórico completo de movimentações de todos os produtos.
+     * 
+     * @return Mapa com histórico por produto
+     */
+    public Map<Long, List<MovimentacaoEstoque>> obterHistoricoCompleto() {
+        Map<Long, List<MovimentacaoEstoque>> historicoCompleto = new HashMap<>();
+        for (Map.Entry<Long, List<MovimentacaoEstoque>> entry : historicoMovimentacoes.entrySet()) {
+            historicoCompleto.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return historicoCompleto;
+    }
+    
     // Métodos auxiliares privados
     
     private ValidacaoItem validarItemIndividual(ItemVenda item) {
@@ -478,15 +506,15 @@ public class ServiceValidacaoEstoque {
         }
     }
     
-    private static class MovimentacaoEstoque {
-        final Long id;
-        final Long produtoId;
-        final TipoMovimentacao tipo;
-        final int quantidade;
-        final String motivo;
-        final LocalDateTime dataMovimentacao;
+    public static class MovimentacaoEstoque {
+        public final Long id;
+        public final Long produtoId;
+        public final TipoMovimentacao tipo;
+        public final int quantidade;
+        public final String motivo;
+        public final LocalDateTime dataMovimentacao;
         
-        MovimentacaoEstoque(Long id, Long produtoId, TipoMovimentacao tipo, 
+        public MovimentacaoEstoque(Long id, Long produtoId, TipoMovimentacao tipo, 
                 int quantidade, String motivo, LocalDateTime dataMovimentacao) {
             this.id = id;
             this.produtoId = produtoId;
@@ -495,6 +523,13 @@ public class ServiceValidacaoEstoque {
             this.motivo = motivo;
             this.dataMovimentacao = dataMovimentacao;
         }
+        
+        public Long getId() { return id; }
+        public Long getProdutoId() { return produtoId; }
+        public TipoMovimentacao getTipo() { return tipo; }
+        public int getQuantidade() { return quantidade; }
+        public String getMotivo() { return motivo; }
+        public LocalDateTime getDataMovimentacao() { return dataMovimentacao; }
     }
     
     private static class ReservaEstoque {
