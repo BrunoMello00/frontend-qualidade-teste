@@ -33,17 +33,45 @@
               <div class="col-12 col-md-6">
                 <label class="form-label">Buscar</label>
                 <div class="input-group">
-                  <span class="input-group-text">
-                    <i class="bi bi-search"></i>
+                  <span class="input-group-text" [class.bg-warning]="isFilterActive('search')">
+                    <i class="bi bi-search" [class.text-white]="isFilterActive('search')"></i>
                   </span>
                   <input 
                     type="text" 
                     class="form-control" 
                     placeholder="Nome ou descrição do evento..."
-                    [(ngModel)]="searchTerm">
+                    [(ngModel)]="searchTerm"
+                    [class.border-warning]="isFilterActive('search')">
                 </div>
               </div>
+
+              <!-- Limpar filtros -->
+              <div class="col-12 col-md-6 d-flex align-items-end">
+                <button 
+                  type="button" 
+                  class="btn btn-outline-secondary"
+                  [class.btn-warning]="hasActiveFilters()"
+                  [class.text-white]="hasActiveFilters()"
+                  (click)="limparFiltros()"
+                  title="Limpar filtros">
+                  <i class="fas fa-times me-1"></i>Limpar Filtros
+                </button>
+              </div>
               
+            </div>
+
+            <!-- Indicador de Filtros Ativos -->
+            <div *ngIf="hasActiveFilters()" class="row mt-3">
+              <div class="col-12">
+                <div class="alert alert-warning d-flex align-items-center mb-0">
+                  <i class="fas fa-filter me-2"></i>
+                  <strong>Filtros ativos:</strong>
+                  <span *ngIf="searchTerm" class="ms-2 badge bg-secondary">Busca: "{{ searchTerm }}"</span>
+                  <button type="button" class="btn btn-sm btn-outline-dark ms-auto" (click)="limparFiltros()">
+                    <i class="fas fa-times me-1"></i>Limpar
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -61,7 +89,15 @@
             </h5>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
+            
+            <!-- Loading -->
+            <div *ngIf="isLoading" class="text-center py-5">
+              <div class="spinner-custom mb-3"></div>
+              <p class="text-muted">Carregando eventos...</p>
+            </div>
+            
+            <!-- Tabela -->
+            <div *ngIf="!isLoading" class="table-responsive">
               <table class="table table-hover mb-0">
                 <thead class="table-light">
                   <tr>
@@ -151,94 +187,198 @@
   </div>
 </div>
 
-<!-- Modal de Evento -->
+<!-- Modal de Evento Moderno -->
 <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" *ngIf="showModal">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-calendar-event me-2"></i>
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow-lg">
+      <!-- Header com Gradient Laranja -->
+      <div class="modal-header bg-gradient-orange text-white border-0 position-relative overflow-hidden">
+        <div class="position-absolute top-0 end-0 opacity-10">
+          <i class="bi bi-calendar-event" style="font-size: 8rem; line-height: 1;"></i>
+        </div>
+        <h4 class="modal-title fw-bold mb-0 position-relative">
+          <div class="icon-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center me-3">
+            <i class="bi bi-calendar-event fs-4 text-white"></i>
+          </div>
           {{ editingEvento ? 'Editar Evento' : 'Novo Evento' }}
-        </h5>
-        <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
+        </h4>
+        <button type="button" class="btn-close btn-close-white position-relative" (click)="closeModal()"></button>
       </div>
       
       <form [formGroup]="eventoForm" (ngSubmit)="onSubmit()">
-        <div class="modal-body">
-          <div class="row g-3">
-            
+        <div class="modal-body p-4">
+          <!-- Informações Básicas -->
+          <div class="section-divider">
+            <div class="section-title">
+              <i class="bi bi-info-circle text-primary me-2"></i>
+              Informações Básicas
+            </div>
+          </div>
+          
+          <div class="row g-3 mb-4">
             <div class="col-12">
-              <label class="form-label">Nome do Evento *</label>
+              <label class="form-label fw-semibold">
+                <i class="bi bi-tag me-1"></i>
+                Nome do Evento *
+              </label>
               <input 
                 type="text" 
-                class="form-control"
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('nome')"
                 formControlName="nome"
-                placeholder="Ex: Black Friday 2025">
-            </div>
-            
-            <div class="col-12">
-              <label class="form-label">Descrição *</label>
-              <textarea 
-                class="form-control"
-                formControlName="descricao"
-                rows="3"
-                placeholder="Descreva os detalhes do evento..."></textarea>
-            </div>
-            
-            <div class="col-12 col-md-6">
-              <label class="form-label">Data/Hora de Início *</label>
-              <input 
-                type="datetime-local" 
-                class="form-control"
-                formControlName="dataInicio">
-            </div>
-            
-            <div class="col-12 col-md-6">
-              <label class="form-label">Data/Hora de Fim *</label>
-              <input 
-                type="datetime-local" 
-                class="form-control"
-                formControlName="dataFim">
-            </div>
-            
-            <div class="col-12 col-md-6">
-              <label class="form-label">Desconto (%)</label>
-              <input 
-                type="number" 
-                class="form-control"
-                formControlName="desconto"
-                min="0"
-                max="100"
-                placeholder="Ex: 10">
-            </div>
-            
-            <div class="col-12 col-md-6">
-              <label class="form-label">Status</label>
-              <div class="form-check form-switch">
-                <input 
-                  class="form-check-input" 
-                  type="checkbox" 
-                  formControlName="ativo"
-                  id="eventoAtivo">
-                <label class="form-check-label" for="eventoAtivo">
-                  Evento Ativo
-                </label>
+                placeholder="Ex: Black Friday 2025, Liquidação de Verão...">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('nome')">
+                Nome do evento é obrigatório
               </div>
             </div>
             
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-textarea-t me-1"></i>
+                Descrição *
+              </label>
+              <textarea 
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('descricao')"
+                formControlName="descricao"
+                rows="3"
+                placeholder="Descreva os detalhes do evento, regras e condições..."></textarea>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('descricao')">
+                Descrição é obrigatória
+              </div>
+            </div>
+          </div>
+
+          <!-- Período e Horários -->
+          <div class="section-divider">
+            <div class="section-title">
+              <i class="bi bi-clock text-primary me-2"></i>
+              Período e Horários
+            </div>
+          </div>
+          
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-calendar-plus me-1"></i>
+                Data/Hora de Início *
+              </label>
+              <input 
+                type="datetime-local" 
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('dataInicio')"
+                formControlName="dataInicio">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('dataInicio')">
+                Data de início é obrigatória
+              </div>
+            </div>
+            
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-calendar-x me-1"></i>
+                Data/Hora de Fim *
+              </label>
+              <input 
+                type="datetime-local" 
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('dataFim')"
+                formControlName="dataFim">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('dataFim')">
+                Data de fim é obrigatória
+              </div>
+            </div>
+          </div>
+
+          <!-- Configurações Promocionais -->
+          <div class="section-divider">
+            <div class="section-title">
+              <i class="bi bi-percent text-primary me-2"></i>
+              Configurações Promocionais
+            </div>
+          </div>
+          
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-tag-fill me-1"></i>
+                Desconto Percentual
+              </label>
+              <div class="input-group">
+                <input 
+                  type="number" 
+                  class="form-control form-control-modern"
+                  formControlName="desconto"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="0">
+                <span class="input-group-text bg-light">%</span>
+              </div>
+              <div class="form-text">
+                <i class="bi bi-info-circle me-1"></i>
+                Deixe vazio ou 0 para eventos sem desconto
+              </div>
+            </div>
+            
+            <!-- Campo removido: Status é gerenciado automaticamente pelo backend -->
+          </div>
+
+          <!-- Preview/Resumo -->
+          <div class="section-divider" *ngIf="eventoForm.get('nome')?.value">
+            <div class="section-title">
+              <i class="bi bi-eye text-primary me-2"></i>
+              Preview do Evento
+            </div>
+          </div>
+          
+          <div class="preview-card" *ngIf="eventoForm.get('nome')?.value">
+            <div class="card border-warning">
+              <div class="card-header bg-warning bg-opacity-10">
+                <h6 class="mb-0 text-warning-emphasis">
+                  <i class="bi bi-calendar-event me-2"></i>
+                  {{ eventoForm.get('nome')?.value }}
+                  <span class="badge bg-warning text-dark ms-2" *ngIf="eventoForm.get('desconto')?.value && eventoForm.get('desconto')?.value > 0">
+                    {{ eventoForm.get('desconto')?.value }}% OFF
+                  </span>
+                </h6>
+              </div>
+              <div class="card-body py-2">
+                <p class="mb-2 text-muted" *ngIf="eventoForm.get('descricao')?.value">
+                  {{ eventoForm.get('descricao')?.value }}
+                </p>
+                <div class="row text-center">
+                  <div class="col-6">
+                    <small class="text-muted d-block">Início</small>
+                    <strong *ngIf="eventoForm.get('dataInicio')?.value">
+                      {{ formatDateTime(eventoForm.get('dataInicio')?.value) }}
+                    </strong>
+                  </div>
+                  <div class="col-6">
+                    <small class="text-muted d-block">Fim</small>
+                    <strong *ngIf="eventoForm.get('dataFim')?.value">
+                      {{ formatDateTime(eventoForm.get('dataFim')?.value) }}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">
+        <div class="modal-footer bg-light border-0 p-4">
+          <button type="button" class="btn btn-outline-secondary px-4" (click)="closeModal()">
+            <i class="bi bi-x-circle me-1"></i>
             Cancelar
           </button>
           <button 
             type="submit" 
-            class="btn btn-primary"
-            [disabled]="!eventoForm.valid">
-            <i class="bi bi-check-circle me-1"></i>
-            {{ editingEvento ? 'Atualizar' : 'Criar' }} Evento
+            class="btn btn-gradient-orange px-4"
+            [disabled]="!eventoForm.valid || isSaving">
+            <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+            <i *ngIf="!isSaving" class="bi" [class.bi-plus-circle]="!editingEvento" [class.bi-check-circle]="editingEvento"></i>
+            <span class="ms-1">
+              {{ isSaving ? 'Salvando...' : (editingEvento ? 'Atualizar Evento' : 'Criar Evento') }}
+            </span>
           </button>
         </div>
       </form>

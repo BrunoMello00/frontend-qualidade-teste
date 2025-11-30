@@ -1,0 +1,2 @@
+-- Criação da tabela de tamanhos de produto (já criada anteriormente)
+-- Este arquivo mantém a numeração sequencial das migrations

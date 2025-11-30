@@ -1,0 +1,95 @@
+# ========================================
+# CONFIGURAÇÃO PRINCIPAL DA APLICAÇÃO
+# Sistema de Estoque e Vendas
+# ========================================
+
+spring:
+  application:
+    name: estoque-vendas
+  profiles:
+    active: local  # Padrão: desenvolvimento local
+  
+  # CONFIGURAÇÃO CRÍTICA: Desabilitar mapeamentos automáticos de recursos estáticos
+  web:
+    resources:
+      add-mappings: false  # Desabilitar mapeamentos automáticos de recursos estáticos
+  
+  # Jackson configurações para serialização de datas
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: true
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: America/Sao_Paulo
+    date-format: yyyy-MM-dd'T'HH:mm:ss
+    default-property-inclusion: non_null
+  
+  # JPA/Hibernate
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        '[format_sql]': true
+        temp:
+          '[use_jdbc_metadata_defaults]': false
+  
+  # Multipart Upload
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Configurações customizadas da aplicação
+app:
+  # CORS configurações
+  cors:
+    allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+
+application:
+  # JWT configurações base
+  jwt:
+    expiration: 3600000  # 1 hora
+    refresh-expiration: 604800000  # 7 dias
+  
+  # CORS configurações base
+  cors:
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Swagger/OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# Logging padrão
+logging:
+  level:
+    '[com.tcc.estoque]': INFO
+    '[org.springframework.security]': WARN
+    '[org.springframework.web]': WARN
+
+---
+# ========================================
+# CONFIGURAÇÕES ESPECÍFICAS POR AMBIENTE
+# ========================================
+# Usar os arquivos application-{profile}.yml para configurações específicas

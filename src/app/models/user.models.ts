@@ -5,7 +5,9 @@
 export enum TipoUsuario {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
-  VENDEDOR = 'VENDEDOR'
+  VENDEDOR = 'VENDEDOR',
+  ESTOQUISTA = 'ESTOQUISTA',
+  COMPRAS = 'COMPRAS'
 }
 
 export enum StatusUsuario {
@@ -91,6 +93,28 @@ export interface AuditoriaLog {
   timestamp: Date;
   sucesso: boolean;
   detalhes?: string;
+}
+
+// Nova interface padronizada compatível com backend
+export interface AuditoriaDTO {
+  id: number;
+  tabela: string;
+  registroId: number;
+  operacao: OperacaoAuditoria;
+  dadosAnteriores?: string;
+  dadosNovos?: string;
+  usuario: string;
+  ipAddress: string;
+  timestampOperacao: Date;
+}
+
+export enum OperacaoAuditoria {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  LOGIN_FAILED = 'LOGIN_FAILED'
 }
 
 export interface SessaoUsuario {
@@ -327,7 +351,9 @@ export interface ApiError {
 export const TIPO_USUARIO_LABELS = {
   [TipoUsuario.OWNER]: 'Proprietário',
   [TipoUsuario.ADMIN]: 'Administrador',
-  [TipoUsuario.VENDEDOR]: 'Vendedor'
+  [TipoUsuario.VENDEDOR]: 'Vendedor',
+  [TipoUsuario.ESTOQUISTA]: 'Estoquista',
+  [TipoUsuario.COMPRAS]: 'Compras'
 };
 
 export const STATUS_USUARIO_LABELS = {

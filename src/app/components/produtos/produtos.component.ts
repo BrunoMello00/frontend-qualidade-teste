@@ -1,9 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ProdutoService, Produto } from '../../services/produto.service';
-import { TipoCodigoBarras, CodigoBarrasRequest } from '../../models/codigo-barras.model';
+import { ProdutoService, Produto, TipoCodigoBarras, CodigoBarrasRequest } from '../../services/produto.service';
+import { AuthService } from '../../services/auth.service';
 
-// Interfaces para compatibilidade
+interface TipoCodigoBarrasInfo {
+  codigo: string;
+  nome: string;
+  descricao: string;
+  padraoBrasileiro: boolean;
+  comprimento: number;
+}
+
 interface TipoTamanho {
   id: number;
   nome: string;
@@ -16,13 +23,9 @@ interface TamanhoProduto {
   id?: number;
   tamanho: string;
   preco?: number;
-  quantidade?: number;
-  estoque?: number;
   codigo?: string;
-  vendidas?: number;
 }
 
-// Interface para estatísticas de venda por produto
 interface ProdutoEstatisticas {
   produtoId: number;
   quantidadeVendida: number;
@@ -46,52 +49,69 @@ export class ProdutosComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
   
-  // Filtros
   searchTerm = '';
   selectedCategory = '';
   selectedTamanho = ''; // novo filtro por tamanho
   categories: string[] = []; // Agora será carregado dinamicamente do backend
   tamanhosDisponiveis: string[] = []; // tamanhos únicos para filtro
   
-  // Sistema de tamanhos
   tiposTamanho: TipoTamanho[] = [];
   showTamanhos = false; // mostrar/ocultar seção de tamanhos no formulário
   tamanhosForm: TamanhoProduto[] = []; // tamanhos do produto sendo editado
   categoriaTamanhoSelecionada: string = ''; // categoria selecionada para tamanhos predefinidos
   tamanhoSelecionadoFiltro: string = ''; // tamanho selecionado para filtro na lista de produtos
   novoTamanho = '';
-  novoTamanhoEstoque = 0;
   
-  // Sistema de código de produto
   codigoPreview = '';
   
-  // Sistema de código de barras
   temCodigoBarras = true; // SEMPRE ATIVO - obrigatório
   codigoBarrasGerado = ''; // Código de barras gerado internamente
   codigoBarrasGeradoAutomaticamente = true; // Flag para identificar se foi gerado automaticamente
   edicaoManualHabilitada = false; // Controla se permite edição manual
-  tiposCodigoBarras: TipoCodigoBarras[] = []; // Tipos disponíveis do backend
+  tiposCodigoBarras: TipoCodigoBarrasInfo[] = []; // Tipos disponíveis do backend
   tipoCodigoBarrasSelecionado = 'EAN13'; // Tipo padrão
   codigoBarrasManual = ''; // Código inserido manualmente pelo usuário
   
-  // Sistema de formatação de preço
+  pausarObservadores = false; // Flag para pausar observadores durante preenchimento
+  
   precoNumerico = 0;
   precoCompra = 0;
   precoVenda = 0;
   margemLucro = 0;
   markup = 0;
   
-  // Filtros avançados
   orderBy = ''; // Valores: 'mais-vendidos', 'menos-vendidos', 'alfabetico-asc', 'alfabetico-desc', 'mais-tempo-sem-vender', 'menos-tempo-sem-vender'
   showAdvancedFilters = false;
   
-  // Paginação
+  // 🆕 Controle de produtos desabilitados
+  showDisabledProducts = false; // Toggle para mostrar produtos desabilitados
+  produtosDesabilitados: Produto[] = [];
+  currentPageDesabilitados = 1;
+  
   currentPage = 1;
   itemsPerPage = 10;
   
+  mostrarValidacao = false;
+  camposFaltantes: string[] = [];
+  
+  // Mapeamento de códigos de departamento para nomes
+  departamentos: { [key: string]: string } = {
+    '01': 'Alimentação',
+    '02': 'Bebidas', 
+    '03': 'Limpeza',
+    '04': 'Higiene',
+    '05': 'Eletrônicos',
+    '06': 'Roupas',
+    '07': 'Casa & Decoração',
+    '08': 'Esportes',
+    '09': 'Livros & Papelaria',
+    '10': 'Outros'
+  };
+  
   constructor(
     private fb: FormBuilder,
-    private produtoService: ProdutoService
+    private produtoService: ProdutoService,
+    public authService: AuthService
   ) {
     this.produtoForm = this.createForm();
   }
@@ -103,26 +123,153 @@ export class ProdutosComponent implements OnInit {
     this.carregarTamanhosDisponiveis();
     this.carregarTiposCodigoBarras();
     
-    // Configurar geração automática de código de barras e cálculos
     this.configurarCalculosAutomaticos();
+    
+    this.configurarMonitoramentoValidacao();
+  }
+
+  configurarMonitoramentoValidacao(): void {
+    this.produtoForm.valueChanges.subscribe(() => {
+      this.verificarCamposFaltantes();
+    });
+    
+    this.verificarCamposFaltantes();
+  }
+
+  verificarCamposFaltantes(): void {
+    this.camposFaltantes = [];
+    
+    const campos = {
+      'nome': 'Nome do Produto',
+      'precoCompra': 'Preço de Compra',
+      'precoVenda': 'Preço de Venda',
+      'estoqueMinimo': 'Estoque Mínimo',
+      'departamento': 'Departamento',
+      'tipoCodigoBarras': 'Tipo de Código de Barras'
+    };
+
+    for (const [campo, nomeCampo] of Object.entries(campos)) {
+      const control = this.produtoForm.get(campo);
+      if (control && control.invalid && (control.dirty || control.touched || this.mostrarValidacao)) {
+        if (control.errors?.['required']) {
+          this.camposFaltantes.push(`${nomeCampo} é obrigatório`);
+        } else if (control.errors?.['min']) {
+          this.camposFaltantes.push(`${nomeCampo} deve ser maior que ${control.errors['min'].min}`);
+        } else if (control.errors?.['minlength']) {
+          this.camposFaltantes.push(`${nomeCampo} deve ter pelo menos ${control.errors['minlength'].requiredLength} caracteres`);
+        } else if (control.errors?.['maxlength']) {
+          this.camposFaltantes.push(`${nomeCampo} não pode ter mais que ${control.errors['maxlength'].requiredLength} caracteres`);
+        }
+      }
+    }
+
+  }
+
+  marcarCamposComoTocados(): void {
+    this.mostrarValidacao = true;
+    Object.keys(this.produtoForm.controls).forEach(campo => {
+      this.produtoForm.get(campo)?.markAsTouched();
+    });
+    this.verificarCamposFaltantes();
+  }
+
+  get formularioValido(): boolean {
+    return this.produtoForm.valid && this.getCamposFaltantes().length === 0;
+  }
+
+  getButtonTooltip(): string {
+    if (this.isLoading) {
+      return 'Salvando produto...';
+    }
+    
+    const camposFaltantes = this.getCamposFaltantes();
+    if (camposFaltantes.length > 0) {
+      return `Complete os seguintes campos: ${camposFaltantes.join(', ')}`;
+    }
+    
+    if (!this.produtoForm.valid) {
+      return 'Preencha todos os campos obrigatórios para continuar';
+    }
+    
+    return this.isEditMode ? 'Clique para atualizar o produto' : 'Clique para cadastrar o produto';
+  }
+
+  shouldShowFormStatus(): boolean {
+    const temErrosBasicos = !this.produtoForm.valid && (this.mostrarValidacao || this.temAlgumCampoTocado());
+    
+    return temErrosBasicos;
+  }
+
+  shouldShowEstoqueError(): boolean {
+    return false;
+  }
+
+  temAlgumCampoTocado(): boolean {
+    return Object.keys(this.produtoForm.controls).some(campo => 
+      this.produtoForm.get(campo)?.touched
+    );
+  }
+
+  getFormStatusBadgeClass(): string {
+    if (this.formularioValido) {
+      return 'bg-success';
+    } else {
+      return 'bg-warning';
+    }
+  }
+
+  getFormStatusText(): string {
+    if (this.formularioValido) {
+      return 'Pronto para enviar';
+    } else {
+      return 'Aguardando preenchimento';
+    }
+  }
+
+  getFormStatusDetails(): string {
+    if (this.formularioValido) {
+      return 'Todos os campos estão corretos';
+    }
+    
+    const errosBasicos = this.camposFaltantes.filter(erro => 
+      !erro.includes('estoque inicial') && !erro.includes('soma dos estoques')
+    ).length;
+    
+    let detalhes = '';
+    
+    if (errosBasicos > 0) {
+      detalhes += `${errosBasicos} campo${errosBasicos !== 1 ? 's' : ''} obrigatório${errosBasicos !== 1 ? 's' : ''} pendente${errosBasicos !== 1 ? 's' : ''}`;
+    }
+    
+    return detalhes || 'Verificando campos...';
+  }
+
+  get temErros(): boolean {
+    return this.camposFaltantes.length > 0;
   }
 
   configurarCalculosAutomaticos(): void {
-    // Escutar mudanças nos campos nome e departamento para código de barras
     this.produtoForm.get('nome')?.valueChanges.subscribe(() => {
-      this.gerarCodigoBarrasAutomatico();
+      if (!this.pausarObservadores && !this.isEditMode && this.codigoBarrasGeradoAutomaticamente) {
+        this.gerarCodigoBarrasAutomatico();
+      }
     });
     
     this.produtoForm.get('departamento')?.valueChanges.subscribe(() => {
-      this.gerarCodigoBarrasAutomatico();
+      if (!this.pausarObservadores && !this.isEditMode && this.codigoBarrasGeradoAutomaticamente) {
+        this.gerarCodigoBarrasAutomatico();
+      }
+      if (!this.pausarObservadores) {
+        this.verificarDepartamentoRoupas();
+      }
     });
 
-    // Escutar mudanças no tipo de código de barras
     this.produtoForm.get('tipoCodigoBarras')?.valueChanges.subscribe(() => {
-      this.onTipoCodigoBarrasChange();
+      if (!this.pausarObservadores) {
+        this.onTipoCodigoBarrasChange();
+      }
     });
 
-    // Escutar mudanças nos preços para calcular margem e markup
     this.produtoForm.get('precoCompra')?.valueChanges.subscribe(() => {
       this.calcularMargemLucro();
     });
@@ -138,24 +285,57 @@ export class ProdutosComponent implements OnInit {
       descricao: ['', [Validators.maxLength(500)]],
       precoCompra: ['', [Validators.required, Validators.min(0)]], // Permite zero para doações
       precoVenda: ['', [Validators.required, Validators.min(0.01)]], // OBRIGATÓRIO: Mínimo R$ 0,01 - NÃO PODE SER ZERO
-      estoque: ['', [Validators.required, Validators.min(1)]], // OBRIGATÓRIO: Mínimo 1 - NÃO PODE SER ZERO
       departamento: ['', [Validators.required]],
       estoqueMinimo: ['', [Validators.required, Validators.min(1)]], // OBRIGATÓRIO: Mínimo 1
       fornecedor: [''],
       tipoCodigoBarras: [this.tipoCodigoBarrasSelecionado, [Validators.required]],
-      codigoBarrasManual: ['']
+      codigoBarrasManual: [''],
+      // 🆕 NOVOS CAMPOS ADICIONADOS
+      prefixoCodigo: ['PROD', [Validators.maxLength(10)]], // Prefixo personalizável
+      margem: ['', [Validators.min(0), Validators.max(999.99)]] // Margem de lucro (%)
+    });
+  }
+
+  debugProduto(produto: any): boolean {
+    console.log('🐛 Debug produto:', produto.nome);
+    console.log('🐛 temTamanhos:', produto.temTamanhos);
+    console.log('🐛 tamanhos array:', produto.tamanhos);
+    console.log('🐛 tamanhos length:', produto.tamanhos?.length);
+    console.log('🐛 Condição final:', produto.tamanhos && produto.tamanhos.length > 0);
+    return produto.tamanhos && produto.tamanhos.length > 0;
+  }
+
+  private processarProdutos(produtos: Produto[]): Produto[] {
+    return produtos.map(produto => {
+      if (!produto.tamanhos) {
+        produto.tamanhos = [];
+      }
+      
+      produto.temTamanhos = produto.tamanhos && produto.tamanhos.length > 0;
+      
+      console.log(`🔧 Produto processado: ${produto.nome} - tamanhos: ${produto.tamanhos?.length || 0}, temTamanhos: ${produto.temTamanhos}`);
+      
+      return produto;
     });
   }
 
   carregarProdutos(): void {
     this.isLoading = true;
-    // Usar método para carregar apenas produtos ativos
+    console.log('🔄 Iniciando carregamento de produtos...');
     this.produtoService.getProdutosAtivos().subscribe({
       next: (produtos: Produto[]) => {
-        this.produtos = produtos;
+        console.log('🔍 Dados brutos do backend:', produtos);
+        console.log('🔍 Total de produtos recebidos:', produtos.length);
+        console.log('🔍 Primeiro produto completo:', produtos[0]);
+        console.log('🔍 IDs dos produtos:', produtos.map(p => ({ id: p.id, nome: p.nome })));
+        
+        this.produtos = this.processarProdutos(produtos);
+        
+        console.log('🔍 Produtos com tamanhos:', this.produtos.filter(p => p.temTamanhos));
+        console.log('✅ Produtos carregados com sucesso!', this.produtos.length, 'produtos');
+        
         this.carregarEstatisticasProdutos();
         this.isLoading = false;
-        console.log('✅ Produtos ativos carregados:', produtos.length, 'produtos');
       },
       error: (error: any) => {
         this.errorMessage = 'Erro ao carregar produtos';
@@ -166,14 +346,11 @@ export class ProdutosComponent implements OnInit {
   }
 
   carregarCategorias(): void {
-    // Carregar categorias do backend (via ProdutoService que já tem o método)
     this.produtoService.buscarCategorias().subscribe({
       next: (categorias: string[]) => {
         this.categories = categorias;
-        console.log('✅ Categorias carregadas:', categorias);
       },
       error: (error) => {
-        // Fallback para categorias padrão se houver erro
         this.categories = ['Roupas', 'Acessórios', 'Calçados', 'Eletrônicos', 'Casa', 'Outros'];
         console.warn('⚠️ Erro ao carregar categorias, usando padrão:', error);
       }
@@ -181,19 +358,14 @@ export class ProdutosComponent implements OnInit {
   }
 
   carregarTiposTamanho(): void {
-    this.produtoService.getTiposTamanho().subscribe({
-      next: (tipos: any[]) => {
-        this.tiposTamanho = tipos;
-        console.log('✅ Tipos de tamanho carregados:', tipos.length);
-      },
-      error: (error: any) => {
-        console.error('❌ Erro ao carregar tipos de tamanho:', error);
-      }
-    });
+    this.tiposTamanho = [
+      { id: 1, nome: 'Roupas Gerais', categoria: 'roupas-gerais', tamanhos: ['PP', 'P', 'M', 'G', 'GG', 'XG'] },
+      { id: 2, nome: 'Calças Numéricas', categoria: 'calcas-numericas', tamanhos: ['36', '38', '40', '42', '44', '46', '48'] },
+      { id: 3, nome: 'Calçados', categoria: 'calcados', tamanhos: ['33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'] }
+    ];
   }
 
   carregarTamanhosDisponiveis(): void {
-    // Extrair todos os tamanhos únicos dos produtos que têm tamanhos
     const tamanhosUnicos = new Set<string>();
     
     this.produtos.forEach(produto => {
@@ -205,23 +377,20 @@ export class ProdutosComponent implements OnInit {
     });
     
     this.tamanhosDisponiveis = Array.from(tamanhosUnicos).sort();
-    console.log('✅ Tamanhos disponíveis carregados:', this.tamanhosDisponiveis);
   }
 
   carregarTiposCodigoBarras(): void {
-    this.produtoService.listarTiposCodigoBarras().subscribe({
-      next: (tipos) => {
+    this.produtoService.listarTiposCodigoSuportados().subscribe({
+      next: (tipos: any[]) => {
         this.tiposCodigoBarras = tipos.map(tipo => ({ 
-          codigo: tipo, 
-          nome: tipo, 
-          descricao: tipo,
-          padraoBrasileiro: false,
-          comprimento: 13
+          codigo: tipo.codigo, // Use o campo codigo do enum
+          nome: tipo.nome, // Use o campo nome do enum
+          descricao: tipo.descricao,
+          padraoBrasileiro: tipo.padraoBrasileiro,
+          comprimento: tipo.tamanhoMaximo
         }));
-        console.log('✅ Tipos de código de barras carregados:', tipos.length);
       },
-      error: (error) => {
-        // Fallback para tipos padrão se houver erro
+      error: (error: any) => {
         this.tiposCodigoBarras = [
           { codigo: 'EAN13', nome: 'EAN-13', descricao: 'Padrão brasileiro 13 dígitos', padraoBrasileiro: true, comprimento: 13 },
           { codigo: 'EAN8', nome: 'EAN-8', descricao: 'Padrão brasileiro 8 dígitos', padraoBrasileiro: true, comprimento: 8 },
@@ -234,38 +403,61 @@ export class ProdutosComponent implements OnInit {
   }
 
   carregarEstatisticasProdutos(): void {
-    // Carregar estatísticas de vendas dos produtos
-    const hoje = new Date();
-    
     this.produtoEstatisticas = this.produtos.map(produto => {
-      // Simular dados de venda para cada produto
-      const vendaAleatoria = Math.random();
-      const quantidadeVendida = Math.floor(vendaAleatoria * 100);
-      const diasSemVender = Math.floor(vendaAleatoria * 365); // 0 a 365 dias
-      
-      let ultimaVenda: Date | undefined;
-      if (diasSemVender > 0) {
-        ultimaVenda = new Date(hoje.getTime() - (diasSemVender * 24 * 60 * 60 * 1000));
-      }
-
       return {
         produtoId: produto.id!,
-        quantidadeVendida,
-        ultimaVenda,
-        diasSemVender
+        quantidadeVendida: 0,  // Produtos novos não têm vendas
+        ultimaVenda: undefined,  // Sem data de última venda
+        diasSemVender: 0  // Zero dias sem vender (produto novo)
       };
     });
+    
+    // para buscar as estatísticas reais de vendas de cada produto
   }
 
   onSubmit(): void {
+    this.marcarCamposComoTocados();
+    
     if (this.produtoForm.valid) {
       this.isLoading = true;
-      const produto = this.produtoForm.value;
+      const produtoForm = this.produtoForm.value;
 
       if (this.isEditMode) {
-        // Modo edição - usar serviço normal
-        this.produtoService.atualizarProduto(this.editingProductId!, produto).subscribe({
-          next: () => {
+        const produtoAtualizado = {
+          nome: produtoForm.nome,
+          descricao: produtoForm.descricao || '',
+          preco: parseFloat(produtoForm.precoVenda) || 0,
+          departamento: produtoForm.departamento || '',
+          estoqueMinimo: parseInt(produtoForm.estoqueMinimo) || 1,
+          fornecedor: produtoForm.fornecedor || '',
+          custoUnitario: parseFloat(produtoForm.precoCompra) || 0, // Agora mapeado corretamente!
+          codigoBarras: produtoForm.codigoBarrasManual || '',
+          tipoCodigoBarras: produtoForm.tipoCodigoBarras || 'EAN13', // 🔧 CORRIGIDO: sem hífen
+          // 🆕 NOVOS CAMPOS ADICIONADOS NA EDIÇÃO:
+          prefixoCodigo: produtoForm.prefixoCodigo || 'PROD', // 📋 Prefixo do Código
+          margem: parseFloat(produtoForm.margem) || undefined, // 📊 Margem de Lucro (%)
+          tamanhos: this.showTamanhos && this.tamanhosForm.length > 0 ? 
+            this.tamanhosForm.map(t => ({
+              id: t.id,
+              tamanho: t.tamanho,
+              preco: t.preco || parseFloat(produtoForm.precoVenda) || 0,
+              codigo: t.codigo
+            })) : []
+        };
+
+        console.log('� DEBUG EDIÇÃO - Gestão de Tamanhos:');
+        console.log('🔍 showTamanhos:', this.showTamanhos);
+        console.log('🔍 tamanhosForm.length:', this.tamanhosForm.length);
+        console.log('🔍 tamanhosForm completo:', this.tamanhosForm);
+        console.log('🔍 tamanhos enviados:', produtoAtualizado.tamanhos);
+        
+        console.log('�📦 Dados mapeados para atualização:', produtoAtualizado);
+        console.log('💰 Custo unitário enviado:', produtoAtualizado.custoUnitario);
+        console.log('🔖 Tipo de código de barras enviado:', produtoAtualizado.tipoCodigoBarras);
+
+        this.produtoService.atualizarProduto(this.editingProductId!, produtoAtualizado).subscribe({
+          next: (response) => {
+            console.log('🔖 Tipo de código retornado:', response?.tipoCodigoBarras);
             this.successMessage = 'Produto atualizado com sucesso!';
             this.resetForm();
             this.carregarProdutos();
@@ -278,61 +470,181 @@ export class ProdutosComponent implements OnInit {
           }
         });
       } else {
-        // Modo criação - gerar código e código de barras automaticamente
         const codigoGerado = this.gerarCodigoCompleto();
         const produtoForm = this.produtoForm.value;
         
+        console.log('🔍 DEBUG - Gestão de Tamanhos:');
+        console.log('🔍 showTamanhos:', this.showTamanhos);
+        console.log('🔍 tamanhosForm.length:', this.tamanhosForm.length);
+        console.log('🔍 tamanhosForm completo:', this.tamanhosForm);
+        
+        const tamanhosParaEnvio = this.showTamanhos && this.tamanhosForm.length > 0 ? 
+          this.tamanhosForm.map(t => ({
+            tamanho: t.tamanho,
+            preco: t.preco || this.precoVenda || 0
+          })) : [];
+
+        console.log('🔍 tamanhosParaEnvio:', tamanhosParaEnvio);
+
         const produtoComQuantidade = {
-          ...produtoForm,
+          nome: produtoForm.nome,
+          descricao: produtoForm.descricao || '',
           preco: this.precoVenda, // Usar preço de venda como preço principal
-          precoCompra: this.precoCompra,
-          precoVenda: this.precoVenda,
-          margemLucro: this.margemLucro,
-          markup: this.markup,
-          quantidade: parseInt(produtoForm.estoque) || 1, // Usar estoque informado
-          estoque: parseInt(produtoForm.estoque) || 1,
-          codigo: codigoGerado, // Código gerado automaticamente
-          codigoBarras: this.codigoBarrasGerado, // Código de barras gerado automaticamente
-          tipoCodigoBarras: this.tipoCodigoBarrasSelecionado, // Tipo do código de barras
-          // Sistema de tamanhos
-          temTamanhos: this.showTamanhos && this.tamanhosForm.length > 0,
-          tamanhos: this.showTamanhos && this.tamanhosForm.length > 0 ? 
-                   this.tamanhosForm.map(t => ({
-                     ...t,
-                     codigo: this.gerarCodigoTamanho(codigoGerado, t.tamanho)
-                   })) : undefined
+          departamento: produtoForm.departamento,
+          estoqueMinimo: parseInt(produtoForm.estoqueMinimo) || 5,
+          // ✅ ADICIONADO: estoque inicial para produtos sem tamanhos
+          estoque: tamanhosParaEnvio.length === 0 ? (parseInt(produtoForm.estoqueInicial) || 0) : 0,
+          custoUnitario: parseFloat(produtoForm.precoCompra) || 0, // 💰 Preço de Compra
+          fornecedor: produtoForm.fornecedor || '', // 🏭 Fornecedor
+          tipoCodigoBarras: produtoForm.tipoCodigoBarras || 'EAN13', // 📊 Tipo de Código
+          codigoBarras: produtoForm.codigoBarrasManual || '', // 🔢 Código de Barras
+          // 🆕 NOVOS CAMPOS ADICIONADOS:
+          prefixoCodigo: produtoForm.prefixoCodigo || 'PROD', // 📋 Prefixo do Código
+          margem: parseFloat(produtoForm.margem) || undefined, // 📊 Margem de Lucro (%)
+          tamanhos: tamanhosParaEnvio
         };
         
-        this.produtoService.criarProdutoComVerificacao(produtoComQuantidade).subscribe({
+        console.log('📦 Dados mapeados para criação:', produtoComQuantidade);
+        console.log('💰 Custo unitário enviado:', produtoComQuantidade.custoUnitario);
+        console.log('🏭 Fornecedor enviado:', produtoComQuantidade.fornecedor);
+        console.log('📊 Tipo código enviado:', produtoComQuantidade.tipoCodigoBarras);
+        
+        this.produtoService.criarProduto(produtoComQuantidade).subscribe({
           next: (produtoSalvo: any) => {
-            if (produtoSalvo.ativo && this.produtos.find(p => p.id === produtoSalvo.id)) {
-              this.successMessage = 'Produto reativado e atualizado com sucesso!';
-            } else {
-              this.successMessage = 'Produto cadastrado com sucesso!';
-            }
+            console.log('✅ Produto criado com sucesso!', produtoSalvo);
+            console.log('📌 ID do produto criado:', produtoSalvo.id);
+            console.log('📌 Nome do produto:', produtoSalvo.nome);
+            console.log('📌 Estoque do produto:', produtoSalvo.quantidadeEstoque || produtoSalvo.estoque);
+            this.successMessage = 'Produto cadastrado com sucesso!';
             this.resetForm();
-            this.carregarProdutos();
+            // Aguardar um pouco antes de recarregar para garantir que o banco processou
+            setTimeout(() => {
+              console.log('🔄 Recarregando lista de produtos...');
+              this.carregarProdutos();
+            }, 500);
             this.isLoading = false;
           },
           error: (error: any) => {
-            if (error.message?.includes('já existe e está ativo')) {
-              this.errorMessage = 'Produto com este código já existe. Use a função de edição.';
-            } else {
-              this.errorMessage = 'Erro ao salvar produto';
-            }
+            console.error('❌ Erro completo ao criar produto:', error);
+            this.errorMessage = 'Erro ao salvar produto: ' + (error.error?.message || error.message);
             this.isLoading = false;
-            console.error('Erro:', error);
           }
         });
       }
+    } else {
+      this.errorMessage = 'Por favor, preencha todos os campos obrigatórios corretamente.';
     }
   }
 
   editarProduto(produto: Produto): void {
-    this.isEditMode = true;
-    this.editingProductId = produto.id!;
-    this.showForm = true;
-    this.produtoForm.patchValue(produto);
+    console.log('🔧 Editando produto (dados da lista):', produto);
+    console.log('🔍 Dados recebidos - custoUnitario:', produto.custoUnitario);
+    console.log('🔍 Dados recebidos - departamento:', produto.departamento);
+    
+    // 🎯 LÓGICA DE COLAPSO: Se clicar no mesmo produto que já está sendo editado, fecha o formulário
+    if (this.showForm && this.isEditMode && this.editingProductId === produto.id) {
+      console.log('🔄 Fechando formulário - mesmo produto selecionado novamente');
+      this.showForm = false;
+      this.resetForm();
+      return;
+    }
+    
+    this.isLoading = true;
+    this.produtoService.buscarPorId(produto.id!).subscribe({
+      next: (produtoCompleto: any) => {
+        console.log('📦 Dados completos do backend:', produtoCompleto);
+        console.log('🔍 Todos os campos disponíveis:', Object.keys(produtoCompleto));
+        console.log('🔍 Campo departamento:', produtoCompleto.departamento);
+        console.log('🔍 Campo custoUnitario:', produtoCompleto.custoUnitario);
+        console.log('🔍 Campo preco:', produtoCompleto.preco);
+        
+        const camposCom10 = Object.entries(produtoCompleto).filter(([key, value]) => value === 10);
+        console.log('🔍 Campos com valor 10:', camposCom10);
+        
+        this.isEditMode = true;
+        this.editingProductId = produto.id!;
+        this.showForm = true;
+        
+        this.pausarObservadores = true;
+        
+        const originalFlag = this.codigoBarrasGeradoAutomaticamente;
+        this.codigoBarrasGeradoAutomaticamente = false;
+        
+        this.produtoForm.patchValue({
+          nome: produtoCompleto.nome || '',
+          descricao: produtoCompleto.descricao || '',
+          precoCompra: produtoCompleto.custoUnitario || 0, // Campo custoUnitario do backend
+          precoVenda: produtoCompleto.preco || 0,
+          estoqueMinimo: produtoCompleto.estoqueMinimo || 1,
+          departamento: produtoCompleto.departamento || '',
+          fornecedor: produtoCompleto.fornecedor || '', // Campo agora existe no backend
+          tipoCodigoBarras: produtoCompleto.tipoCodigoBarras || 'EAN13', // Usar formato do backend
+          codigoBarrasManual: produtoCompleto.codigoBarras || produtoCompleto.codigo || '',
+          // 🆕 NOVOS CAMPOS ADICIONADOS NO PREENCHIMENTO:
+          prefixoCodigo: produtoCompleto.prefixoCodigo || 'PROD', // 📋 Prefixo do Código
+          margem: produtoCompleto.margem || undefined // 📊 Margem de Lucro (%)
+        });
+        
+        this.codigoBarrasGeradoAutomaticamente = originalFlag;
+        
+        setTimeout(() => {
+          this.pausarObservadores = false;
+        }, 100);
+
+        console.log('🔍 Código de barras preservado:', this.produtoForm.get('codigoBarrasManual')?.value);
+        console.log('🔖 Tipo de código de barras original do backend:', produtoCompleto.tipoCodigoBarras);
+        console.log('🔖 Tipo de código de barras no formulário:', this.produtoForm.get('tipoCodigoBarras')?.value);
+
+        if (produtoCompleto.tamanhos && produtoCompleto.tamanhos.length > 0) {
+          this.showTamanhos = true;
+          this.tamanhosForm = produtoCompleto.tamanhos.map((t: any) => ({
+            id: t.id,
+            tamanho: t.tamanho,
+            preco: t.preco,
+            codigo: t.codigo
+          }));
+          
+          // 🔧 DEFINIR CATEGORIA DE TAMANHO baseada nos tamanhos existentes
+          this.definirCategoriaAutomatica(produtoCompleto.tamanhos);
+        } else if (produtoCompleto.departamento === '06') {
+          this.showTamanhos = true;
+          // 🔧 DEFINIR CATEGORIA PADRÃO para roupas quando não há tamanhos
+          this.categoriaTamanhoSelecionada = 'roupas-gerais';
+          console.log('🔧 Categoria de tamanho definida automaticamente: roupas-gerais');
+        }
+
+        this.isLoading = false;
+        
+        setTimeout(() => {
+          const formElement = document.getElementById('form-produto');
+          if (formElement) {
+            formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      },
+      error: (error: any) => {
+        console.error('❌ Erro ao buscar produto completo:', error);
+        this.isLoading = false;
+        this.errorMessage = 'Erro ao carregar dados do produto para edição';
+      }
+    });
+
+    if (produto.tamanhos && produto.tamanhos.length > 0) {
+      this.showTamanhos = true;
+      this.tamanhosForm = produto.tamanhos.map(t => ({
+        id: t.id,
+        tamanho: t.tamanho,
+        preco: t.preco,
+        codigo: t.codigo
+      }));
+    }
+
+    setTimeout(() => {
+      const formElement = document.getElementById('form-produto');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   }
 
   mostrarModalEditarProduto(produto: Produto): void {
@@ -370,7 +682,7 @@ export class ProdutosComponent implements OnInit {
                   <select class="form-select" id="categoria" required>
                     <option value="">Selecione...</option>
                     ${this.categories.map(cat => `
-                      <option value="${cat}" ${cat === produto.categoria ? 'selected' : ''}>${cat}</option>
+                      <option value="${cat}" ${cat === produto.departamento ? 'selected' : ''}>${cat}</option>
                     `).join('')}
                   </select>
                 </div>
@@ -395,7 +707,6 @@ export class ProdutosComponent implements OnInit {
 
     document.body.appendChild(modal);
 
-    // Configurar eventos
     const btnSalvar = modal.querySelector('#btnSalvarProduto') as HTMLButtonElement;
     const inputNome = modal.querySelector('#nome') as HTMLInputElement;
     const inputPreco = modal.querySelector('#preco') as HTMLInputElement;
@@ -417,7 +728,6 @@ export class ProdutosComponent implements OnInit {
       btnSalvar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
 
       try {
-        // Criar objeto com os campos que serão atualizados para o serviço
         const dadosAtualizacao = {
           nome,
           preco,
@@ -428,16 +738,14 @@ export class ProdutosComponent implements OnInit {
 
         const resultado = await this.produtoService.atualizarProduto(produto.id!, dadosAtualizacao as any).toPromise();
 
-        // Atualizar produto na lista
         const index = this.produtos.findIndex(p => p.id === produto.id);
         if (index !== -1) {
-          this.produtos[index] = { ...this.produtos[index], nome, preco, categoria, descricao: descricao || produto.descricao };
+          this.produtos[index] = { ...this.produtos[index], nome, preco, departamento: categoria, descricao: descricao || produto.descricao };
         }
 
         this.successMessage = 'Produto atualizado com sucesso!';
         setTimeout(() => this.clearMessages(), 5000);
 
-        // Fechar modal
         modal.remove();
         document.querySelector('.modal-backdrop')?.remove();
         document.body.classList.remove('modal-open');
@@ -452,17 +760,14 @@ export class ProdutosComponent implements OnInit {
       }
     });
 
-    // Mostrar modal
     const bsModal = new (window as any).bootstrap.Modal(modal);
     bsModal.show();
 
-    // Limpar modal ao fechar
     modal.addEventListener('hidden.bs.modal', () => {
       modal.remove();
     });
   }
 
-  // Método para mostrar informações detalhadas do produto
   mostrarModalVisualizarProduto(produto: Produto): void {
     const modal = document.createElement('div');
     modal.className = 'modal fade';
@@ -501,8 +806,8 @@ export class ProdutosComponent implements OnInit {
                         <span class="text-success fw-bold">R$ ${produto.preco?.toFixed(2) || '0,00'}</span>
                       </div>
                       <div class="col-md-6">
-                        <strong>Categoria:</strong><br>
-                        <span class="badge bg-secondary">${produto.categoria || 'N/A'}</span>
+                        <strong>Departamento:</strong><br>
+                        <span class="badge bg-secondary">${this.getNomeDepartamento(produto.departamento)}</span>
                       </div>
                     </div>
                     ${produto.descricao ? `
@@ -526,7 +831,7 @@ export class ProdutosComponent implements OnInit {
                     </h6>
                     <div class="row">
                       <div class="col-md-4">
-                        <strong>Estoque Atual:</strong><br>
+                        <strong>Estoque Total:</strong><br>
                         <span class="badge ${(produto.estoque ?? 0) > 10 ? 'bg-success' : (produto.estoque ?? 0) > 0 ? 'bg-warning' : 'bg-danger'} fs-6">
                           ${produto.estoque} unidades
                         </span>
@@ -545,6 +850,44 @@ export class ProdutosComponent implements OnInit {
                   </div>
                 </div>
               </div>
+
+              ${produto.tamanhos && produto.tamanhos.length > 0 ? `
+              <div class="col-12">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title text-primary mb-3">
+                      <i class="bi bi-rulers me-2"></i>
+                      Estoque por Tamanho
+                    </h6>
+                    <div class="row g-2">
+                      ${produto.tamanhos.map((tamanho: any) => `
+                        <div class="col-md-3">
+                          <div class="border rounded p-2 bg-white text-center">
+                            <div class="fw-bold text-primary">${tamanho.tamanho}</div>
+                            <div class="mt-1">
+                              <span class="badge ${(tamanho.estoque ?? 0) > 5 ? 'bg-success' : (tamanho.estoque ?? 0) > 0 ? 'bg-warning text-dark' : 'bg-danger'} fs-6">
+                                ${tamanho.estoque ?? 0} unid.
+                              </span>
+                            </div>
+                            ${tamanho.preco && tamanho.preco !== produto.preco ? `
+                              <div class="small text-muted mt-1">
+                                R$ ${tamanho.preco.toFixed(2)}
+                              </div>
+                            ` : ''}
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                    <div class="mt-3">
+                      <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Estoques individuais por tamanho disponível
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              ` : ''}
 
               ${produto.codigoBarras ? `
               <div class="col-12">
@@ -593,9 +936,7 @@ export class ProdutosComponent implements OnInit {
             <button type="button" class="btn btn-primary imprimir-etiqueta">
               <i class="bi bi-printer me-1"></i>Imprimir Etiqueta
             </button>
-            <button type="button" class="btn btn-warning editar-produto">
-              <i class="bi bi-pencil me-1"></i>Editar Produto
-            </button>
+            <!-- BOTÃO REMOVIDO: Editar Produto - conforme solicitado -->
           </div>
         </div>
       </div>
@@ -603,10 +944,8 @@ export class ProdutosComponent implements OnInit {
 
     document.body.appendChild(modal);
 
-    // Adicionar eventos
     const btnImprimir = modal.querySelector('.imprimir-etiqueta') as HTMLButtonElement;
     const btnImprimirModal = modal.querySelector('.imprimir-etiqueta-modal') as HTMLButtonElement;
-    const btnEditar = modal.querySelector('.editar-produto') as HTMLButtonElement;
 
     btnImprimir?.addEventListener('click', () => {
       this.imprimirEtiqueta(produto);
@@ -616,43 +955,381 @@ export class ProdutosComponent implements OnInit {
       this.imprimirEtiqueta(produto);
     });
 
-    btnEditar?.addEventListener('click', () => {
-      modal.remove();
-      document.querySelector('.modal-backdrop')?.remove();
-      document.body.classList.remove('modal-open');
-      setTimeout(() => this.mostrarModalEditarProduto(produto), 100);
-    });
 
-    // Mostrar modal
     const bsModal = new (window as any).bootstrap.Modal(modal);
     bsModal.show();
 
-    // Limpar modal ao fechar
     modal.addEventListener('hidden.bs.modal', () => {
       modal.remove();
     });
   }
 
+  /**
+   * 🔄 MELHORADO: Desabilitação de produto com modal avançado e validações
+   */
   desabilitarProduto(id: number, nome: string): void {
-    if (confirm(`Tem certeza que deseja desabilitar o produto "${nome}"?\n\nEle será removido da listagem mas mantido no banco de dados.`)) {
-      this.isLoading = true;
-      this.produtoService.desabilitarProduto(id).subscribe({
-        next: (sucesso: boolean) => {
-          if (sucesso) {
-            this.successMessage = 'Produto desabilitado com sucesso!';
-            this.carregarProdutos();
-          } else {
-            this.errorMessage = 'Erro ao desabilitar produto';
-          }
-          this.isLoading = false;
-        },
-        error: (error: any) => {
-          this.errorMessage = 'Erro ao desabilitar produto';
-          this.isLoading = false;
-          console.error('Erro:', error);
-        }
-      });
+    const produto = this.produtos.find((p: Produto) => p.id === id);
+    
+    if (!produto) {
+      this.errorMessage = 'Produto não encontrado na lista atual.';
+      return;
     }
+
+    this.mostrarModalDesabilitarProduto(produto);
+  }
+
+  /**
+   * 🆕 Modal avançado para desabilitação de produto
+   */
+  private mostrarModalDesabilitarProduto(produto: Produto): void {
+    const modalId = 'modal-desabilitar-produto-' + produto.id;
+    const modalHtml = `
+      <div class="modal fade" id="${modalId}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-warning">
+            
+            <!-- Header -->
+            <div class="modal-header bg-warning text-dark">
+              <h5 class="modal-title">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Desabilitar Produto
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+              <div class="text-center mb-3">
+                <i class="bi bi-eye-slash text-warning" style="font-size: 3rem;"></i>
+              </div>
+              
+              <h6 class="text-center mb-3">
+                Tem certeza que deseja desabilitar este produto?
+              </h6>
+
+              <!-- Informações do produto -->
+              <div class="card bg-light mb-3">
+                <div class="card-body py-2">
+                  <h6 class="card-title mb-2 text-primary">
+                    <i class="bi bi-box me-2"></i>
+                    ${produto.nome}
+                  </h6>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <strong>Departamento:</strong><br>
+                      <span class="badge bg-secondary">${produto.departamento || 'Sem departamento'}</span>
+                    </div>
+                    <div class="col-6">
+                      <strong>Preço:</strong><br>
+                      <span class="text-success">R$ ${produto.preco?.toFixed(2) || '0,00'}</span>
+                    </div>
+                    <!-- SEÇÃO REMOVIDA: Estoque Atual - será gerenciado na área de movimentação -->
+                    <div class="col-6 mt-2">
+                      <strong>Código:</strong><br>
+                      <span class="badge bg-light text-dark">${produto.codigoBarras || 'Sem código'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Alertas baseados no status do produto -->
+              <!-- ALERTA REMOVIDO: Estoque será gerenciado na área de movimentação -->
+
+              ${produto.estoqueBaixo ? `
+                <div class="alert alert-warning d-flex align-items-center">
+                  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                  <small>
+                    <strong>Estoque Baixo:</strong> Este produto está com estoque abaixo do mínimo.
+                  </small>
+                </div>
+              ` : ''}
+
+              <!-- Explicação da ação -->
+              <div class="alert alert-warning d-flex align-items-start">
+                <i class="bi bi-lightbulb-fill me-2 mt-1"></i>
+                <div>
+                  <strong>O que acontecerá:</strong>
+                  <ul class="mb-0 mt-1">
+                    <li>O produto será removido da listagem principal</li>
+                    <li>Não aparecerá mais nas pesquisas</li>
+                    <li>Dados históricos serão preservados</li>
+                    <li>Pode ser reativado posteriormente</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <i class="bi bi-x-lg me-1"></i>
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-warning" 
+                id="btn-confirmar-desabilitacao-${produto.id}"
+                onclick="window.confirmarDesabilitacaoProduto(${produto.id}, '${produto.nome}')">
+                <i class="bi bi-eye-slash me-1"></i>
+                Sim, Desabilitar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modal = new (window as any).bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+
+    (window as any).confirmarDesabilitacaoProduto = (id: number, nome: string) => {
+      this.executarDesabilitacaoProduto(id, nome, modal);
+    };
+
+    modal._element.addEventListener('hidden.bs.modal', () => {
+      document.getElementById(modalId)?.remove();
+      delete (window as any).confirmarDesabilitacaoProduto;
+    });
+  }
+
+  /**
+   * 🆕 Executa a desabilitação com feedback visual melhorado
+   */
+  private executarDesabilitacaoProduto(id: number, nome: string, modal: any): void {
+    const botaoConfirmar = document.getElementById(`btn-confirmar-desabilitacao-${id}`);
+    
+    if (botaoConfirmar) {
+      botaoConfirmar.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        Desabilitando...
+      `;
+      botaoConfirmar.setAttribute('disabled', 'true');
+    }
+
+    this.produtoService.deletarProduto(id).subscribe({
+      next: () => {
+        modal.hide();
+        
+        this.successMessage = `Produto "${nome}" desabilitado com sucesso! 🎯`;
+        
+        this.carregarProdutos();
+        
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 5000);
+      },
+      error: (error: any) => {
+        console.error('Erro ao desabilitar produto:', error);
+        
+        if (botaoConfirmar) {
+          botaoConfirmar.innerHTML = `
+            <i class="bi bi-eye-slash me-1"></i>
+            Sim, Desabilitar
+          `;
+          botaoConfirmar.removeAttribute('disabled');
+        }
+        
+        this.errorMessage = `Erro ao desabilitar produto "${nome}". Tente novamente.`;
+        
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 7000);
+      }
+    });
+  }
+  
+  /**
+   * 🔄 MELHORADO: Reativação de produto com modal avançado
+   */
+  reativarProduto(id: number, nome: string): void {
+    const produto = this.produtosDesabilitados.find((p: Produto) => p.id === id);
+    
+    if (!produto) {
+      this.errorMessage = 'Produto não encontrado na lista de desabilitados.';
+      return;
+    }
+
+    this.mostrarModalReativarProduto(produto);
+  }
+
+  /**
+   * 🆕 Modal avançado para reativação de produto
+   */
+  private mostrarModalReativarProduto(produto: Produto): void {
+    const modalId = 'modal-reativar-produto-' + produto.id;
+    const modalHtml = `
+      <div class="modal fade" id="${modalId}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-success">
+            
+            <!-- Header -->
+            <div class="modal-header bg-success text-white">
+              <h5 class="modal-title">
+                <i class="bi bi-arrow-clockwise me-2"></i>
+                Reativar Produto
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+              <div class="text-center mb-3">
+                <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+              </div>
+              
+              <h6 class="text-center mb-3">
+                Tem certeza que deseja reativar este produto?
+              </h6>
+
+              <!-- Informações do produto -->
+              <div class="card bg-light mb-3">
+                <div class="card-body py-2">
+                  <h6 class="card-title mb-2 text-primary">
+                    <i class="bi bi-box me-2"></i>
+                    ${produto.nome}
+                  </h6>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <strong>Departamento:</strong><br>
+                      <span class="badge bg-secondary">${produto.departamento || 'Sem departamento'}</span>
+                    </div>
+                    <div class="col-6">
+                      <strong>Preço:</strong><br>
+                      <span class="text-success">R$ ${produto.preco?.toFixed(2) || '0,00'}</span>
+                    </div>
+                    <!-- SEÇÃO REMOVIDA: Estoque Atual - será gerenciado na área de movimentação -->
+                    <div class="col-6 mt-2">
+                      <strong>Código:</strong><br>
+                      <span class="badge bg-light text-dark">${produto.codigoBarras || 'Sem código'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Explicação da ação -->
+              <div class="alert alert-success d-flex align-items-start">
+                <i class="bi bi-lightbulb-fill me-2 mt-1"></i>
+                <div>
+                  <strong>O que acontecerá:</strong>
+                  <ul class="mb-0 mt-1">
+                    <li>O produto voltará a aparecer na listagem principal</li>
+                    <li>Poderá ser encontrado nas pesquisas</li>
+                    <li>Estará disponível para vendas</li>
+                    <li>Histórico e dados serão mantidos</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <i class="bi bi-x-lg me-1"></i>
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-success" 
+                id="btn-confirmar-reativacao-${produto.id}"
+                onclick="window.confirmarReativacaoProduto(${produto.id}, '${produto.nome}')">
+                <i class="bi bi-arrow-clockwise me-1"></i>
+                Sim, Reativar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modal = new (window as any).bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+
+    (window as any).confirmarReativacaoProduto = (id: number, nome: string) => {
+      this.executarReativacaoProduto(id, nome, modal);
+    };
+
+    modal._element.addEventListener('hidden.bs.modal', () => {
+      document.getElementById(modalId)?.remove();
+      delete (window as any).confirmarReativacaoProduto;
+    });
+  }
+
+  /**
+   * 🆕 Executa a reativação com feedback visual melhorado
+   */
+  private executarReativacaoProduto(id: number, nome: string, modal: any): void {
+    const botaoConfirmar = document.getElementById(`btn-confirmar-reativacao-${id}`);
+    
+    if (botaoConfirmar) {
+      botaoConfirmar.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        Reativando...
+      `;
+      botaoConfirmar.setAttribute('disabled', 'true');
+    }
+
+    this.produtoService.reativarProduto(id).subscribe({
+      next: () => {
+        modal.hide();
+        
+        this.successMessage = `Produto "${nome}" reativado com sucesso! ✅`;
+        
+        this.carregarProdutosDesabilitados(); // Recarregar lista de desabilitados
+        this.carregarProdutos(); // Recarregar lista principal
+        
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 5000);
+      },
+      error: (error: any) => {
+        console.error('Erro ao reativar produto:', error);
+        
+        if (botaoConfirmar) {
+          botaoConfirmar.innerHTML = `
+            <i class="bi bi-arrow-clockwise me-1"></i>
+            Sim, Reativar
+          `;
+          botaoConfirmar.removeAttribute('disabled');
+        }
+        
+        this.errorMessage = `Erro ao reativar produto "${nome}". Tente novamente.`;
+        
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 7000);
+      }
+    });
+  }
+  
+  /**
+   * 🆕 Toggle para mostrar/ocultar produtos desabilitados
+   */
+  toggleProdutosDesabilitados(): void {
+    this.showDisabledProducts = !this.showDisabledProducts;
+    if (this.showDisabledProducts) {
+      this.carregarProdutosDesabilitados();
+    }
+  }
+  
+  /**
+   * 🆕 Carregar produtos desabilitados
+   */
+  carregarProdutosDesabilitados(): void {
+    this.produtoService.listarProdutosDesabilitados(this.currentPageDesabilitados - 1, this.itemsPerPage).subscribe({
+      next: (response: any) => {
+        this.produtosDesabilitados = response.content || response;
+      },
+      error: (error: any) => {
+        console.error('❌ Erro ao carregar produtos desabilitados:', error);
+        this.errorMessage = 'Erro ao carregar produtos desabilitados';
+      }
+    });
   }
 
   resetForm(): void {
@@ -662,7 +1339,6 @@ export class ProdutosComponent implements OnInit {
     this.showForm = false;
     this.errorMessage = '';
     
-    // Limpar campos de formatação
     this.precoNumerico = 0;
     this.precoCompra = 0;
     this.precoVenda = 0;
@@ -670,21 +1346,17 @@ export class ProdutosComponent implements OnInit {
     this.markup = 0;
     this.codigoPreview = '';
     
-    // Limpar sistema de código de barras
     this.codigoBarrasGerado = '';
     this.codigoBarrasGeradoAutomaticamente = true;
     this.edicaoManualHabilitada = false;
     this.tipoCodigoBarrasSelecionado = 'EAN13'; // Resetar para padrão
     this.codigoBarrasManual = '';
     
-    // Limpar sistema de tamanhos
     this.showTamanhos = false;
     this.tamanhosForm = [];
     this.categoriaTamanhoSelecionada = '';
     this.novoTamanho = '';
-    this.novoTamanhoEstoque = 0;
     
-    // Resetar valor do tipo de código de barras no form
     this.produtoForm.patchValue({
       tipoCodigoBarras: this.tipoCodigoBarrasSelecionado
     });
@@ -699,18 +1371,15 @@ export class ProdutosComponent implements OnInit {
 
   getFilteredProducts(): Produto[] {
     let filtered = this.produtos.filter(produto => {
-      // Busca por nome e descrição
       const searchLower = this.searchTerm.toLowerCase();
       const matchesSearch = !this.searchTerm || 
                            produto.nome.toLowerCase().includes(searchLower) ||
                            (produto.descricao || '').toLowerCase().includes(searchLower);
       
-      // Filtro por categoria única
       const matchesCategory = !this.selectedCategory || 
                              this.selectedCategory === '' || // "Todas as categorias"
-                             produto.categoria && produto.categoria.toLowerCase().includes(this.selectedCategory.toLowerCase());
+                             this.getNomeDepartamento(produto.departamento) === this.selectedCategory;
       
-      // Filtro por tamanho
       const matchesTamanho = !this.tamanhoSelecionadoFiltro || 
                             this.tamanhoSelecionadoFiltro === '' || // "Todos os tamanhos"
                             (produto.temTamanhos && produto.tamanhos && 
@@ -719,7 +1388,6 @@ export class ProdutosComponent implements OnInit {
       return matchesSearch && matchesCategory && matchesTamanho;
     });
 
-    // Aplicar ordenação
     if (this.orderBy) {
       filtered = this.applySorting(filtered);
     }
@@ -746,11 +1414,9 @@ export class ProdutosComponent implements OnInit {
           return b.nome.localeCompare(a.nome);
         
         case 'mais-tempo-sem-vender':
-          // Ordena do que está há mais tempo sem vender para o menos tempo
           return (statsB?.diasSemVender || 0) - (statsA?.diasSemVender || 0);
         
         case 'menos-tempo-sem-vender':
-          // Ordena do que está há menos tempo sem vender para o mais tempo
           return (statsA?.diasSemVender || 0) - (statsB?.diasSemVender || 0);
         
         default:
@@ -759,7 +1425,6 @@ export class ProdutosComponent implements OnInit {
     });
   }
 
-  // Métodos para controlar filtros avançados
   toggleAdvancedFilters(): void {
     this.showAdvancedFilters = !this.showAdvancedFilters;
   }
@@ -772,7 +1437,6 @@ export class ProdutosComponent implements OnInit {
     this.currentPage = 1;
   }
 
-  // Métodos auxiliares para estatísticas
   getQuantidadeVendida(produtoId: number): number {
     const stats = this.produtoEstatisticas.find(s => s.produtoId === produtoId);
     return stats?.quantidadeVendida || 0;
@@ -814,6 +1478,19 @@ export class ProdutosComponent implements OnInit {
     return 'EM ESTOQUE';
   }
 
+  // 🆕 Métodos para status ativo/inativo do produto
+  getStatusAtivoBadgeClass(produto: Produto): string {
+    return produto.ativo ? 'bg-success' : 'bg-secondary';
+  }
+
+  getStatusAtivoText(produto: Produto): string {
+    return produto.ativo ? 'ATIVO' : 'INATIVO';
+  }
+
+  getStatusAtivoIcon(produto: Produto): string {
+    return produto.ativo ? 'bi-check-circle-fill' : 'bi-x-circle-fill';
+  }
+
   formatarMoeda(valor: number): string {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -829,7 +1506,6 @@ export class ProdutosComponent implements OnInit {
   getErrorMessage(field: string): string {
     const control = this.produtoForm.get(field);
     if (control?.errors && control.touched) {
-      // Mensagens específicas para cada campo
       if (field === 'precoCompra') {
         if (control.errors['required']) return 'Preço de compra é obrigatório';
         if (control.errors['min']) return 'Preço de compra deve ser maior que R$ 0,00';
@@ -858,7 +1534,6 @@ export class ProdutosComponent implements OnInit {
         return 'Estoque Mínimo inválido';
       }
       
-      // Mensagens genéricas
       if (control.errors['required']) return `${field} é obrigatório`;
       if (control.errors['minlength']) return `${field} deve ter pelo menos ${control.errors['minlength'].requiredLength} caracteres`;
       if (control.errors['maxlength']) return `${field} deve ter no máximo ${control.errors['maxlength'].requiredLength} caracteres`;
@@ -867,7 +1542,6 @@ export class ProdutosComponent implements OnInit {
     return '';
   }
 
-  // Método para calcular classe CSS baseada no tempo sem vender
   getTempoSemVenderClass(produtoId: number): string {
     const diasSemVender = this.getDiasSemVender(produtoId);
     
@@ -878,7 +1552,6 @@ export class ProdutosComponent implements OnInit {
     return 'tempo-critico'; // Mais de 6 meses
   }
 
-  // Método para obter texto descritivo do tempo sem vender
   getTempoSemVenderTexto(produtoId: number): string {
     const diasSemVender = this.getDiasSemVender(produtoId);
     
@@ -892,7 +1565,6 @@ export class ProdutosComponent implements OnInit {
     const anos = Math.floor(diasSemVender / 365);
     return `${anos} ${anos === 1 ? 'ano' : 'anos'} atrás`;
   }
-  // Métodos para sistema de código de produto
   gerarPreviewCodigo(): void {
     const departamento = this.produtoForm.get('departamento')?.value;
 
@@ -912,7 +1584,6 @@ export class ProdutosComponent implements OnInit {
   }
 
   private obterCodigoCategoria(categoria: string): string {
-    // Mapear categorias para códigos de 2 dígitos
     const mapeamentoCategorias: { [key: string]: string } = {
       'alimentação': '01', 'alimentos': '01', 'comida': '01',
       'bebidas': '02', 'drinks': '02',
@@ -928,19 +1599,16 @@ export class ProdutosComponent implements OnInit {
 
     const categoriaLower = categoria.toLowerCase().trim();
     
-    // Buscar correspondência exata
     if (mapeamentoCategorias[categoriaLower]) {
       return mapeamentoCategorias[categoriaLower];
     }
 
-    // Buscar por palavras-chave
     for (const [chave, codigo] of Object.entries(mapeamentoCategorias)) {
       if (categoriaLower.includes(chave) || chave.includes(categoriaLower)) {
         return codigo;
       }
     }
 
-    // Se não encontrar, gerar código baseado no hash da categoria
     const hash = this.simpleHash(categoriaLower);
     const codigo = (hash % 89) + 10; // Gera códigos entre 10-98 (evita 99 que é "outros")
     return codigo.toString().padStart(2, '0');
@@ -957,11 +1625,8 @@ export class ProdutosComponent implements OnInit {
   }
 
   private obterProximoSequencial(departamento: string, categoria: string): string {
-    // Simular busca no banco de dados do próximo sequencial
-    // Na implementação real, isso seria uma consulta ao backend
     const prefixo = `${departamento}${categoria}`;
     
-    // Por enquanto, vou simular retornando um número baseado no tempo
     const agora = new Date();
     const sequencial = (agora.getHours() * 100 + agora.getMinutes()) % 9999 + 1;
     
@@ -969,7 +1634,6 @@ export class ProdutosComponent implements OnInit {
   }
 
   private calcularDigitoVerificador(codigo: string): string {
-    // Algoritmo similar ao dígito verificador do CPF
     let soma = 0;
     const pesos = [2, 3, 4, 5, 6, 7, 8, 9];
     
@@ -1001,29 +1665,23 @@ export class ProdutosComponent implements OnInit {
     return `${codigoDepartamento}${codigoCategoria}-${sequencial}-${ano}-${digitoVerificador}`;
   }
 
-  // Métodos para formatação de preço
   formatarPreco(event: any): void {
     let input = event.target.value;
     
-    // Conversão para cálculos internos
     let valorParaCalculo = input.replace(',', '.');
     const valorNumerico = parseFloat(valorParaCalculo) || 0;
     this.precoNumerico = valorNumerico;
     
-    // Atualiza o FormControl
     this.produtoForm.get('preco')?.setValue(valorNumerico, { emitEvent: false });
   }
   
-  // Formatar quando sair do campo
   formatarPrecoAoSair(event: any): void {
     const valor = event.target.value;
     if (!valor) return;
     
-    // Converte para número
     const valorParaCalculo = valor.replace(',', '.');
     const valorNumerico = parseFloat(valorParaCalculo) || 0;
     
-    // Formata no padrão brasileiro para exibição final
     const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -1033,11 +1691,9 @@ export class ProdutosComponent implements OnInit {
     this.validarPreco();
   }
 
-  // Método para formatar preço de compra com formatação automática
   formatarPrecoCompra(event: any): void {
     let valor = event.target.value;
     
-    // Remove tudo que não for número
     const apenasNumeros = valor.replace(/\D/g, '');
     
     if (apenasNumeros === '') {
@@ -1047,24 +1703,20 @@ export class ProdutosComponent implements OnInit {
       return;
     }
     
-    // Converte para centavos e depois para reais
     const valorEmCentavos = parseInt(apenasNumeros);
     const valorNumerico = valorEmCentavos / 100;
     
     this.precoCompra = valorNumerico;
     
-    // Formata para exibição
     const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
     
-    // Atualiza o campo sem trigger de eventos para evitar loop
     setTimeout(() => {
       event.target.value = valorFormatado;
     }, 0);
     
-    // Validação
     if (valorNumerico >= 0) {
       event.target.classList.remove('is-invalid');
       this.produtoForm.get('precoCompra')?.setErrors(null);
@@ -1077,11 +1729,9 @@ export class ProdutosComponent implements OnInit {
     this.calcularMargemLucro();
   }
 
-  // Método para formatar preço de venda com formatação automática
   formatarPrecoVenda(event: any): void {
     let valor = event.target.value;
     
-    // Remove tudo que não for número
     const apenasNumeros = valor.replace(/\D/g, '');
     
     if (apenasNumeros === '') {
@@ -1091,24 +1741,20 @@ export class ProdutosComponent implements OnInit {
       return;
     }
     
-    // Converte para centavos e depois para reais
     const valorEmCentavos = parseInt(apenasNumeros);
     const valorNumerico = valorEmCentavos / 100;
     
     this.precoVenda = valorNumerico;
     
-    // Formata para exibição
     const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
     
-    // Atualiza o campo sem trigger de eventos para evitar loop
     setTimeout(() => {
       event.target.value = valorFormatado;
     }, 0);
     
-    // Validação: preço de venda deve ser maior que 0
     if (valorNumerico > 0) {
       event.target.classList.remove('is-invalid');
       this.produtoForm.get('precoVenda')?.setErrors(null);
@@ -1121,16 +1767,13 @@ export class ProdutosComponent implements OnInit {
     this.calcularMargemLucro();
   }
 
-  // Formatar preço de compra ao sair do campo (onBlur)
   formatarPrecoCompraAoSair(event: any): void {
     const valor = event.target.value;
     if (!valor) return;
     
-    // Converte para número
     const valorParaCalculo = valor.replace(',', '.');
     const valorNumerico = parseFloat(valorParaCalculo) || 0;
     
-    // Formata no padrão brasileiro para exibição
     const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -1141,16 +1784,13 @@ export class ProdutosComponent implements OnInit {
     this.calcularMargemLucro();
   }
 
-  // Formatar preço de venda ao sair do campo (onBlur)
   formatarPrecoVendaAoSair(event: any): void {
     const valor = event.target.value;
     if (!valor) return;
     
-    // Converte para número
     const valorParaCalculo = valor.replace(',', '.');
     const valorNumerico = parseFloat(valorParaCalculo) || 0;
     
-    // Formata no padrão brasileiro para exibição
     const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -1161,16 +1801,13 @@ export class ProdutosComponent implements OnInit {
     this.calcularMargemLucro();
   }
 
-  // Método para formatar estoque com validação
   formatarEstoque(event: any): void {
     let valor = event.target.value;
     
-    // Remove tudo que não for número
     valor = valor.replace(/\D/g, '');
     
     const valorNumerico = parseInt(valor) || 0;
     
-    // Validar que não seja negativo ou zero
     if (valorNumerico <= 0) {
       event.target.classList.add('is-invalid');
       this.produtoForm.get('estoque')?.setErrors({ invalidStock: true });
@@ -1184,8 +1821,6 @@ export class ProdutosComponent implements OnInit {
     this.produtoForm.get('estoque')?.setValue(valorNumerico, { emitEvent: false });
   }
 
-  // Calcular margem de lucro e markup
-  // Calcular margem de lucro e markup
   calcularMargemLucro(): void {
     if (this.precoCompra >= 0 && this.precoVenda > 0) {
       const lucro = this.precoVenda - this.precoCompra;
@@ -1197,7 +1832,6 @@ export class ProdutosComponent implements OnInit {
     }
   }
 
-  // Validar estoque - não permite valores negativos ou zero
   validarEstoque(event: any): void {
     let valor = parseInt(event.target.value) || 0;
     
@@ -1206,7 +1840,6 @@ export class ProdutosComponent implements OnInit {
       event.target.style.border = '2px solid #dc3545'; // Borda vermelha
       this.produtoForm.get('estoque')?.setErrors({ invalidStock: true });
       
-      // Mostra mensagem de erro
       this.errorMessage = '⚠️ Estoque não pode ser zero ou negativo!';
       setTimeout(() => this.errorMessage = '', 3000);
     } else {
@@ -1215,14 +1848,12 @@ export class ProdutosComponent implements OnInit {
       this.produtoForm.get('estoque')?.setErrors(null);
     }
     
-    // Força o valor mínimo
     if (valor <= 0) {
       event.target.value = 1;
       this.produtoForm.get('estoque')?.setValue(1, { emitEvent: false });
     }
   }
 
-  // Validar estoque mínimo - não permite valores negativos ou zero
   validarEstoqueMinimo(event: any): void {
     let valor = parseInt(event.target.value) || 0;
     
@@ -1231,7 +1862,6 @@ export class ProdutosComponent implements OnInit {
       event.target.style.border = '2px solid #dc3545'; // Borda vermelha
       this.produtoForm.get('estoqueMinimo')?.setErrors({ invalidStock: true });
       
-      // Mostra mensagem de erro
       this.errorMessage = '⚠️ Estoque mínimo não pode ser zero ou negativo!';
       setTimeout(() => this.errorMessage = '', 3000);
     } else {
@@ -1240,14 +1870,12 @@ export class ProdutosComponent implements OnInit {
       this.produtoForm.get('estoqueMinimo')?.setErrors(null);
     }
     
-    // Força o valor mínimo
     if (valor <= 0) {
       event.target.value = 1;
       this.produtoForm.get('estoqueMinimo')?.setValue(1, { emitEvent: false });
     }
   }
 
-  // Validar preço de compra - não permite valores negativos ou zero
   validarPrecoCompra(event: any): void {
     let valor = parseFloat(event.target.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
     
@@ -1256,7 +1884,6 @@ export class ProdutosComponent implements OnInit {
       event.target.style.border = '2px solid #dc3545'; // Borda vermelha
       this.produtoForm.get('precoCompra')?.setErrors({ invalidPrice: true });
       
-      // Mostra mensagem de erro
       this.errorMessage = '⚠️ Preço de compra não pode ser zero ou negativo!';
       setTimeout(() => this.errorMessage = '', 3000);
     } else {
@@ -1266,7 +1893,6 @@ export class ProdutosComponent implements OnInit {
     }
   }
 
-  // Validar preço de venda - não permite valores negativos ou zero
   validarPrecoVenda(event: any): void {
     let valor = parseFloat(event.target.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
     
@@ -1275,7 +1901,6 @@ export class ProdutosComponent implements OnInit {
       event.target.style.border = '2px solid #dc3545'; // Borda vermelha
       this.produtoForm.get('precoVenda')?.setErrors({ invalidPrice: true });
       
-      // Mostra mensagem de erro
       this.errorMessage = '⚠️ Preço de venda não pode ser zero ou negativo!';
       setTimeout(() => this.errorMessage = '', 3000);
     } else {
@@ -1295,7 +1920,6 @@ export class ProdutosComponent implements OnInit {
   private extrairValorNumerico(valorFormatado: string): number {
     if (!valorFormatado) return 0;
     
-    // Remover pontos de milhar e substituir vírgula por ponto
     const valorLimpo = valorFormatado
       .replace(/\./g, '')
       .replace(',', '.');
@@ -1304,48 +1928,47 @@ export class ProdutosComponent implements OnInit {
     return isNaN(numero) ? 0 : numero;
   }
 
-  // Geração automática de código de barras usando código do produto
   gerarCodigoBarrasAutomatico(): void {
+    if (!this.codigoBarrasGeradoAutomaticamente) {
+      return;
+    }
+    
     const tipoCodigoBarras = this.produtoForm.get('tipoCodigoBarras')?.value || this.tipoCodigoBarrasSelecionado;
     const departamento = this.produtoForm.get('departamento')?.value;
+    const codigoExistente = this.produtoForm.get('codigoBarrasManual')?.value;
+    
+    if (this.isEditMode && codigoExistente && codigoExistente.trim() !== '') {
+      return;
+    }
     
     if (!tipoCodigoBarras) {
-      console.log('⚠️ Tipo de código de barras não selecionado');
       return; // Não gera se não tem tipo selecionado
     }
 
     if (!departamento) {
-      console.log('⚠️ Departamento não selecionado - necessário para geração automática');
       return; // Não gera se não tem departamento (necessário para prefixo)
     }
 
-    // Gerar prefixo baseado no departamento selecionado
-    // Para códigos EAN-13: usar código do departamento como prefixo
     let prefixo = '';
     if (tipoCodigoBarras === 'EAN13' || tipoCodigoBarras === 'EAN8') {
-      // Para EAN, usar o código do departamento como prefixo (ex: "01", "02")
       prefixo = departamento;
     } else {
-      // Para outros tipos, usar um prefixo mais genérico
       prefixo = `D${departamento}`;
     }
 
-    // Chama o backend para gerar código de barras
     const request: CodigoBarrasRequest = {
-      tipoCodigoBarras: tipoCodigoBarras,
+      tipoCodigoBarras: tipoCodigoBarras as TipoCodigoBarras,
       prefixo: prefixo,
       gerarAutomaticamente: true
     };
 
-    this.produtoService.gerarCodigoBarras(request).subscribe({
-      next: (response) => {
+    this.produtoService.gerarCodigoPersonalizado(request).subscribe({
+      next: (response: any) => {
         this.codigoBarrasGerado = response.codigo;
         this.codigoBarrasGeradoAutomaticamente = true;
-        console.log('✅ Código de barras gerado:', response.codigo, 'Tipo:', response.tipo, 'Prefixo:', response.prefixo);
       },
-      error: (error) => {
+      error: (error: any) => {
         console.warn('⚠️ Erro ao gerar código de barras, usando fallback:', error);
-        // Fallback: gerar código simples baseado no timestamp e departamento
         const timestamp = Date.now().toString().slice(-8);
         const fallbackCodigo = prefixo + timestamp;
         this.codigoBarrasGerado = fallbackCodigo;
@@ -1354,13 +1977,11 @@ export class ProdutosComponent implements OnInit {
     });
   }
 
-  // ===== MÉTODOS PARA SISTEMA DE CÓDIGO DE BARRAS =====
 
   onTipoCodigoBarrasChange(): void {
     const novoTipo = this.produtoForm.get('tipoCodigoBarras')?.value;
     this.tipoCodigoBarrasSelecionado = novoTipo;
     
-    // Regenerar código automaticamente se estava em modo automático
     if (this.codigoBarrasGeradoAutomaticamente) {
       this.gerarCodigoBarrasAutomatico();
     }
@@ -1370,11 +1991,9 @@ export class ProdutosComponent implements OnInit {
     this.edicaoManualHabilitada = !this.edicaoManualHabilitada;
     
     if (this.edicaoManualHabilitada) {
-      // Modo manual: limpar código gerado automaticamente
       this.codigoBarrasGeradoAutomaticamente = false;
       this.codigoBarrasManual = this.codigoBarrasGerado; // Copiar para edição
     } else {
-      // Modo automático: gerar novo código
       this.codigoBarrasGeradoAutomaticamente = true;
       this.codigoBarrasManual = '';
       this.gerarCodigoBarrasAutomatico();
@@ -1393,25 +2012,16 @@ export class ProdutosComponent implements OnInit {
 
   validarCodigoBarrasManual(): void {
     const codigo = this.codigoBarrasManual;
-    const tipo = this.tipoCodigoBarrasSelecionado;
     
-    if (codigo && tipo) {
-      this.produtoService.validarCodigoBarras(codigo, tipo).subscribe({
-        next: (response) => {
-          if (response.valido) {
-            this.successMessage = `Código de barras ${codigo} é válido para ${tipo}`;
-            this.codigoBarrasGerado = codigo;
-          } else {
-            this.errorMessage = `Código de barras ${codigo} é inválido para ${tipo}`;
-          }
-          setTimeout(() => this.clearMessages(), 3000);
-        },
-        error: (error) => {
-          this.errorMessage = 'Erro ao validar código de barras';
-          console.error('Erro na validação:', error);
-          setTimeout(() => this.clearMessages(), 3000);
-        }
-      });
+    if (codigo) {
+      const valido = this.produtoService.validarCodigoBarras(codigo);
+      if (valido) {
+        this.successMessage = `Código de barras ${codigo} é válido`;
+        this.codigoBarrasGerado = codigo;
+      } else {
+        this.errorMessage = `Código de barras ${codigo} é inválido`;
+      }
+      setTimeout(() => this.clearMessages(), 3000);
     }
   }
 
@@ -1422,8 +2032,7 @@ export class ProdutosComponent implements OnInit {
     return this.codigoBarrasGerado || '';
   }
 
-  // Métodos auxiliares para o template
-  getTipoCodigoBarrasSelecionadoInfo(): TipoCodigoBarras | undefined {
+  getTipoCodigoBarrasSelecionadoInfo(): TipoCodigoBarrasInfo | undefined {
     return this.tiposCodigoBarras.find(t => t.codigo === this.tipoCodigoBarrasSelecionado);
   }
 
@@ -1448,19 +2057,16 @@ export class ProdutosComponent implements OnInit {
     return comprimento > 0 ? comprimento + ' dígitos' : 'Variável';
   }
 
-  // ===== MÉTODOS PARA SISTEMA DE TAMANHOS =====
 
   toggleTamanhos(): void {
     // showTamanhos já é atualizado automaticamente pelo ngModel
     
     if (this.showTamanhos && this.tamanhosForm.length === 0) {
-      // Pequeno delay para permitir que a animação comece antes de adicionar conteúdo
       setTimeout(() => {
         this.adicionarTamanhoForm();
       }, 100);
     }
     
-    // Scroll suave para a seção quando expandir
     if (this.showTamanhos) {
       setTimeout(() => {
         const elemento = document.querySelector('.tamanhos-section');
@@ -1475,20 +2081,172 @@ export class ProdutosComponent implements OnInit {
   }
 
   adicionarTamanhoForm(): void {
+    console.log('🔍 DEBUG: Adicionando tamanho form');
+    console.log('🔍 Estado anterior tamanhosForm:', this.tamanhosForm);
+    
     const novoId = this.tamanhosForm.length > 0 ? 
       Math.max(...this.tamanhosForm.map(t => t.id!)) + 1 : 1;
     
     this.tamanhosForm.push({
       id: novoId,
       tamanho: '',
-      estoque: 0,
-      codigo: '',
-      vendidas: 0
+      codigo: ''
     });
+
+    console.log('🔍 Estado após adicionar:', this.tamanhosForm);
+
+    setTimeout(() => this.verificarCamposFaltantes(), 200);
+    
+    // 🎯 MELHORIA DE USABILIDADE: Focar automaticamente no campo de tamanho
+    setTimeout(() => {
+      this.focarCampoTamanhoRecemAdicionado();
+    }, 100);
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Foca no campo de tamanho do último item adicionado
+   */
+  private focarCampoTamanhoRecemAdicionado(): void {
+    const ultimoIndex = this.tamanhosForm.length - 1;
+    setTimeout(() => {
+      const campoTamanho = document.querySelector(`tr:nth-child(${ultimoIndex + 1}) td:nth-child(1) input`) as HTMLInputElement;
+      if (campoTamanho) {
+        campoTamanho.focus();
+        campoTamanho.select();
+        console.log('🎯 Foco definido automaticamente no campo de tamanho');
+      }
+    }, 150); // Timeout aumentado para garantir renderização
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Adiciona tamanho predefinido e foca no campo quantidade
+   */
+  adicionarTamanhoPredefinido(tamanho: string): void {
+    console.log('🔍 DEBUG: Adicionando tamanho predefinido:', tamanho);
+    console.log('🔍 Estado atual tamanhosForm:', this.tamanhosForm);
+    
+    const tamanhoExiste = this.tamanhosForm.some(t => 
+      t.tamanho.toLowerCase().trim() === tamanho.toLowerCase().trim()
+    );
+    
+    if (tamanhoExiste) {
+      this.errorMessage = `O tamanho "${tamanho}" já foi adicionado. Escolha um tamanho diferente.`;
+      setTimeout(() => this.clearMessages(), 3000);
+      return;
+    }
+    
+    this.adicionarTamanhoForm();
+    const ultimoTamanho = this.tamanhosForm[this.tamanhosForm.length - 1];
+    ultimoTamanho.tamanho = tamanho;
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Foca no campo quantidade de um tamanho específico
+   */
+  private focarCampoQuantidade(index: number): void {
+    setTimeout(() => {
+      const campoQuantidade = document.querySelector(`tr:nth-child(${index + 1}) td:nth-child(2) input`) as HTMLInputElement;
+      if (campoQuantidade) {
+        campoQuantidade.focus();
+        campoQuantidade.select();
+        console.log(`🎯 Foco definido automaticamente no campo quantidade (linha ${index + 1})`);
+      }
+    }, 150);
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Navega entre campos com Enter no campo tamanho
+   */
+  onTamanhoKeydown(event: KeyboardEvent, index: number): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.focarCampoQuantidade(index);
+    }
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Navega entre campos com Enter no campo quantidade
+   */
+  onQuantidadeKeydown(event: KeyboardEvent, index: number): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      
+      if (index === this.tamanhosForm.length - 1) {
+        this.adicionarTamanhoForm();
+      } else {
+        setTimeout(() => {
+          this.focarCampoTamanhoDoIndice(index + 1);
+        }, 50);
+      }
+    }
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Foca no campo tamanho de um índice específico
+   */
+  private focarCampoTamanhoDoIndice(index: number): void {
+    setTimeout(() => {
+      const campoTamanho = document.querySelector(`tr:nth-child(${index + 1}) td:nth-child(1) input`) as HTMLInputElement;
+      if (campoTamanho) {
+        campoTamanho.focus();
+        campoTamanho.select();
+        console.log(`🎯 Foco definido no campo tamanho (linha ${index + 1})`);
+      }
+    }, 150);
+  }
+
+  /**
+   * 🎯 MELHORIA DE USABILIDADE: Quando categoria de tamanho muda, rola automaticamente para mostrar tamanhos disponíveis
+   */
+  onCategoriaTamanhoChange(): void {
+    console.log('🔧 Categoria de tamanho alterada para:', this.categoriaTamanhoSelecionada);
+    
+    if (this.categoriaTamanhoSelecionada && this.categoriaTamanhoSelecionada !== '') {
+      setTimeout(() => {
+        const tamanhosDisponiveis = document.querySelector('.d-flex.flex-wrap.gap-2');
+        if (tamanhosDisponiveis) {
+          tamanhosDisponiveis.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+    }
   }
 
   removerTamanhoForm(index: number): void {
     this.tamanhosForm.splice(index, 1);
+    
+    setTimeout(() => this.verificarCamposFaltantes(), 200);
+  }
+
+
+  formatarTamanho(tamanho: TamanhoProduto): void {
+    if (!tamanho.tamanho) return;
+    
+    tamanho.tamanho = tamanho.tamanho.trim().toUpperCase();
+  }
+
+  validarTamanhoPersonalizado(tamanho: TamanhoProduto, event: any): void {
+    const valor = event.target.value?.trim().toUpperCase();
+    
+    if (this.categoriaTamanhoSelecionada === 'roupas-gerais' && valor) {
+      const tamanhosRoupasPadrao = ['PP', 'P', 'M', 'G', 'GG', 'GGG', 'XG', 'XGG', 'XGGG', '2G', '3G'];
+      
+      if (!tamanhosRoupasPadrao.includes(valor) && valor.length > 0) {
+        this.confirmarTamanhoNaoPadrao(tamanho, valor);
+      }
+    }
+  }
+
+  private confirmarTamanhoNaoPadrao(tamanho: TamanhoProduto, valor: string): void {
+    const confirmacao = confirm(
+      `⚠️ Confirmação de Tamanho\n\n` +
+      `O tamanho "${valor}" não é um tamanho padrão para roupas gerais.\n\n` +
+      `Tamanhos padrão: PP, P, M, G, GG, GGG, XG, XGG, XGGG, 2G, 3G\n\n` +
+      `Deseja realmente usar o tamanho "${valor}"?`
+    );
+    
+    if (!confirmacao) {
+      tamanho.tamanho = '';
+    }
   }
 
   getTamanhosPorCategoria(categoria: string): string[] {
@@ -1497,60 +2255,152 @@ export class ProdutosComponent implements OnInit {
   }
 
   adicionarTamanhoCustomizado(): void {
+    console.log('🔍 DEBUG: Adicionando tamanho customizado:', this.novoTamanho);
+    console.log('🔍 Estado atual tamanhosForm:', this.tamanhosForm);
+    
     if (this.novoTamanho.trim()) {
       const tamanhoExiste = this.tamanhosForm.some(t => 
-        t.tamanho.toLowerCase() === this.novoTamanho.toLowerCase()
+        t.tamanho.toLowerCase().trim() === this.novoTamanho.toLowerCase().trim()
       );
       
-      if (!tamanhoExiste) {
-        this.adicionarTamanhoForm();
-        const ultimoTamanho = this.tamanhosForm[this.tamanhosForm.length - 1];
-        ultimoTamanho.tamanho = this.novoTamanho.trim();
-        ultimoTamanho.estoque = this.novoTamanhoEstoque;
-        
-        // Adicionar aos tamanhos disponíveis se não existe
-        if (!this.tamanhosDisponiveis.includes(this.novoTamanho.trim())) {
-          this.tamanhosDisponiveis.push(this.novoTamanho.trim());
-          this.tamanhosDisponiveis.sort();
-        }
-        
-        this.novoTamanho = '';
-        this.novoTamanhoEstoque = 0;
-      } else {
-        alert('Este tamanho já foi adicionado!');
+      if (tamanhoExiste) {
+        this.errorMessage = `O tamanho "${this.novoTamanho.trim()}" já foi adicionado. Digite um tamanho diferente.`;
+        setTimeout(() => this.clearMessages(), 3000);
+        return;
       }
+      
+      this.adicionarTamanhoForm();
+      const ultimoTamanho = this.tamanhosForm[this.tamanhosForm.length - 1];
+      ultimoTamanho.tamanho = this.novoTamanho.trim();
+      
+      console.log('🔍 Tamanho adicionado:', ultimoTamanho);
+      console.log('🔍 Estado final tamanhosForm:', this.tamanhosForm);
+      
+      if (!this.tamanhosDisponiveis.includes(this.novoTamanho.trim())) {
+        this.tamanhosDisponiveis.push(this.novoTamanho.trim());
+        this.tamanhosDisponiveis.sort();
+      }
+      
+      this.novoTamanho = '';
     }
   }
 
-  calcularEstoqueTotal(): number {
-    return this.tamanhosForm.reduce((total, tamanho) => total + (tamanho.estoque || 0), 0);
+  // - relacionados ao estoque inicial, não mais necessários
+
+  onDepartamentoChange(): void {
+    this.gerarPreviewCodigo();
+    
+    // 🎯 MELHORIA DE USABILIDADE: Auto-ativar gestão de tamanhos para departamento de roupas
+    if (this.isDepartamentoRoupas()) {
+      this.showTamanhos = true;
+      // 🔧 Definir categoria padrão automaticamente para roupas
+      if (!this.categoriaTamanhoSelecionada) {
+        this.categoriaTamanhoSelecionada = 'roupas-gerais';
+        console.log('🔧 Categoria de tamanho definida automaticamente: roupas-gerais (departamento 06)');
+      }
+      
+      // 🎯 SCROLL AUTOMÁTICO para a seção de tamanhos após expansão
+      setTimeout(() => {
+        const tamanhoSection = document.querySelector('.tamanhos-card');
+        if (tamanhoSection) {
+          tamanhoSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    } else {
+      this.verificarDepartamentoRoupas(); // Este método já desativa se não for roupas
+      this.categoriaTamanhoSelecionada = '';
+    }
+  }
+
+  isDepartamentoRoupas(): boolean {
+    const departamento = this.produtoForm.get('departamento')?.value;
+    return departamento === '06';
+  }
+
+  verificarDepartamentoRoupas(): void {
+    if (!this.isDepartamentoRoupas()) {
+      this.showTamanhos = false;
+      this.tamanhosForm = [];
+    }
+  }
+
+  definirCategoriaAutomatica(tamanhos: any[]): void {
+    // 🔧 Definir categoria de tamanho automaticamente baseada nos tamanhos existentes
+    if (!tamanhos || tamanhos.length === 0) {
+      return;
+    }
+
+    const tamanhosExistentes = tamanhos.map(t => t.tamanho);
+    console.log('🔍 Analisando tamanhos existentes:', tamanhosExistentes);
+
+    for (const tipoTamanho of this.tiposTamanho) {
+      if (!tipoTamanho.tamanhos || !tipoTamanho.categoria) {
+        continue;
+      }
+
+      const matchCount = tamanhosExistentes.filter(t => 
+        tipoTamanho.tamanhos!.includes(t)
+      ).length;
+      
+      if (matchCount >= tamanhosExistentes.length / 2) {
+        this.categoriaTamanhoSelecionada = tipoTamanho.categoria;
+        console.log(`🔍 Match: ${matchCount}/${tamanhosExistentes.length} tamanhos`);
+        return;
+      }
+    }
+
+    this.categoriaTamanhoSelecionada = 'roupas-gerais';
+    console.log('🔧 Fallback: categoria definida como roupas-gerais');
+  }
+
+
+  getCamposFaltantes(): string[] {
+    const camposFaltantes: string[] = [];
+
+    if (!this.produtoForm.get('nome')?.value?.trim()) {
+      camposFaltantes.push('Nome do produto');
+    }
+    
+    
+    if (!this.produtoForm.get('precoCompra')?.value || this.produtoForm.get('precoCompra')?.value < 0) {
+      camposFaltantes.push('Preço de compra válido (R$ 0,00 ou maior)');
+    }
+    
+    if (!this.produtoForm.get('precoVenda')?.value || this.produtoForm.get('precoVenda')?.value < 0.01) {
+      camposFaltantes.push('Preço de venda válido (mínimo R$ 0,01)');
+    }
+    
+    if (!this.produtoForm.get('departamento')?.value) {
+      camposFaltantes.push('Departamento');
+    }
+    
+    if (!this.produtoForm.get('tipoCodigoBarras')?.value) {
+      camposFaltantes.push('Tipo de código de barras');
+    }
+
+    return camposFaltantes;
   }
 
   gerarCodigoTamanho(codigoBase: string, tamanho: string): string {
     return `${codigoBase}-${tamanho}`;
   }
 
-  // Método para obter estatísticas de um produto por tamanho
   getEstatisticasTamanho(produtoId: number): void {
-    this.produtoService.getEstatisticasPorTamanho(produtoId).subscribe({
-      next: (estatisticas: any) => {
-        console.log('📊 Estatísticas por tamanho:', estatisticas);
-        // Aqui você pode processar e exibir as estatísticas em um modal ou seção específica
-      },
-      error: (error: any) => {
-        console.error('❌ Erro ao carregar estatísticas por tamanho:', error);
-      }
-    });
+    console.log('📊 Estatísticas por tamanho não disponíveis no backend atual');
   }
 
-  // Método para visualizar código de barras em modal
   visualizarCodigoBarras(produto: Produto): void {
     const codigoBarras = produto.codigoBarras || produto.codigo?.replace(/-/g, '') || 'SEM-CODIGO';
+    
+    // Gerar IDs únicos
+    const timestamp = Date.now();
+    const svgId = `barcode-svg-${timestamp}`;
+    const fallbackId = `barcode-fallback-${timestamp}`;
     
     const modal = document.createElement('div');
     modal.className = 'modal fade';
     modal.innerHTML = `
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header bg-primary text-white">
             <h5 class="modal-title">
@@ -1560,22 +2410,51 @@ export class ProdutosComponent implements OnInit {
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body text-center">
-            <div class="border p-4 bg-light">
-              <div class="font-monospace h3 text-primary mb-3">${codigoBarras}</div>
-              <div class="small text-muted mb-3">Código para scanner USB</div>
-              <div style="font-family: 'Courier New', monospace; font-size: 24px; letter-spacing: 2px; background: white; padding: 10px; border: 2px solid #000;">
-                ||||| ${codigoBarras} |||||
+            <div class="border p-4 bg-light rounded mb-3">
+              <div class="font-monospace h4 text-primary mb-3">${codigoBarras}</div>
+              <div class="small text-muted mb-3">Código para scanner ou leitura manual</div>
+              
+              <!-- Container para código de barras SVG -->
+              <div class="barcode-container bg-white p-3 border rounded shadow-sm mb-3">
+                <svg id="${svgId}" class="barcode-svg" style="width: 100%; height: 100px;"></svg>
+                <div class="fallback-barcode d-none">
+                  <div class="text-center p-3 border rounded bg-white">
+                    <div class="barcode-visual mb-2" id="${fallbackId}"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                Tipo: ${produto.tipoCodigoBarras || 'EAN13'} | 
+                Formato: ${codigoBarras.length} dígitos
               </div>
             </div>
-            <div class="mt-3">
-              <strong>Produto:</strong> ${produto.nome}<br>
-              <strong>Preço:</strong> R$ ${produto.preco?.toFixed(2) || '0,00'}
+            
+            <div class="row text-start">
+              <div class="col-md-6">
+                <strong>📦 Produto:</strong><br>
+                <span class="text-muted">${produto.nome}</span>
+              </div>
+              <div class="col-md-3">
+                <strong>💰 Preço:</strong><br>
+                <span class="text-success fw-bold">R$ ${produto.preco?.toFixed(2) || '0,00'}</span>
+              </div>
+              <div class="col-md-3">
+                <strong>📊 Estoque:</strong><br>
+                <span class="text-info">${produto.estoque || 0} un.</span>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-            <button type="button" class="btn btn-primary imprimir-codigo">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-1"></i>Fechar
+            </button>
+            <button type="button" class="btn btn-success imprimir-codigo">
               <i class="bi bi-printer me-1"></i>Imprimir Etiqueta
+            </button>
+            <button type="button" class="btn btn-primary copiar-codigo">
+              <i class="bi bi-clipboard me-1"></i>Copiar Código
             </button>
           </div>
         </div>
@@ -1584,35 +2463,461 @@ export class ProdutosComponent implements OnInit {
 
     document.body.appendChild(modal);
 
-    // Adicionar evento de impressão
+    // Gerar código de barras SVG após modal estar visível
+    setTimeout(() => {
+      this.renderizarCodigoBarrasSVG(codigoBarras, svgId, fallbackId);
+    }, 300);
+
+    // Event listeners
     const btnImprimir = modal.querySelector('.imprimir-codigo') as HTMLButtonElement;
     btnImprimir?.addEventListener('click', () => {
       this.imprimirEtiqueta(produto);
     });
 
-    // Mostrar modal
+    const btnCopiar = modal.querySelector('.copiar-codigo') as HTMLButtonElement;
+    btnCopiar?.addEventListener('click', () => {
+      navigator.clipboard.writeText(codigoBarras).then(() => {
+        btnCopiar.innerHTML = '<i class="bi bi-check me-1"></i>Copiado!';
+        setTimeout(() => {
+          btnCopiar.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copiar Código';
+        }, 2000);
+      });
+    });
+
     const bsModal = new (window as any).bootstrap.Modal(modal);
     bsModal.show();
 
-    // Limpar modal ao fechar
     modal.addEventListener('hidden.bs.modal', () => {
       modal.remove();
     });
   }
 
-  // Método para imprimir etiqueta de código de barras
-  imprimirEtiqueta(produto: any): void {
-    const conteudoEtiqueta = this.gerarConteudoEtiqueta(produto);
+  // Método para gerar código de barras visual usando sistema CSS personalizado
+  renderizarCodigoBarrasSVG(codigo: string, svgId: string, fallbackId?: string): void {
+    console.log('🎯 Renderizando código de barras:', codigo, 'SVG ID:', svgId);
     
-    const janelaImpressao = window.open('', '_blank', 'width=400,height=300');
-    if (janelaImpressao) {
-      janelaImpressao.document.write(conteudoEtiqueta);
-      janelaImpressao.document.close();
-      janelaImpressao.print();
+    // Detectar tipo de código e renderizar adequadamente
+    const isCodigoPersonalizado = codigo.startsWith('PROD-') || codigo.includes('-');
+    
+    if (isCodigoPersonalizado) {
+      console.log('🔧 Usando sistema personalizado para código:', codigo);
+    } else {
+      console.log('🔧 Usando sistema EAN13 para código numérico:', codigo);
+    }
+    
+    this.mostrarFallbackCodigoBarras(svgId, fallbackId, codigo);
+    
+    /* Código JsBarcode desabilitado - usando sistema personalizado
+    try {
+      // Verificar se JsBarcode está disponível
+      if (typeof (window as any).JsBarcode === 'undefined') {
+        console.warn('⚠️ JsBarcode não disponível, usando fallback');
+        this.mostrarFallbackCodigoBarras(svgId, fallbackId, codigo);
+        return;
+      }
+      
+      const svg = document.getElementById(svgId);
+      if (!svg) {
+        console.warn('⚠️ Elemento SVG não encontrado:', svgId);
+        this.mostrarFallbackCodigoBarras(svgId, fallbackId, codigo);
+        return;
+      }
+      
+      console.log('✅ Gerando código de barras SVG...');
+      
+      // Limpar o código para JsBarcode (apenas números para EAN)
+      const codigoLimpo = codigo.replace(/[^0-9]/g, '');
+      const formato = this.detectarFormatoCodigoBarras(codigoLimpo);
+      
+      console.log('📊 Código limpo:', codigoLimpo, 'Formato:', formato);
+      
+      (window as any).JsBarcode(svg, codigoLimpo, {
+        format: formato,
+        width: 2,
+        height: 80,
+        displayValue: true,
+        fontSize: 14,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+        textAlign: 'center',
+        textPosition: 'bottom',
+        font: 'monospace'
+      });
+      
+      console.log('✅ Código de barras SVG gerado com sucesso!');
+      
+    } catch (error) {
+      console.error('❌ Erro ao gerar código de barras SVG:', error);
+      this.mostrarFallbackCodigoBarras(svgId, fallbackId, codigo);
+    }
+    */
+  }
+
+  private mostrarFallbackCodigoBarras(svgId: string, fallbackId: string | undefined, codigo: string): void {
+    console.log('🔄 Ativando fallback para código:', codigo);
+    
+    const svg = document.getElementById(svgId);
+    if (svg) {
+      svg.style.display = 'none';
+      const fallbackContainer = svg.parentElement?.querySelector('.fallback-barcode');
+      if (fallbackContainer) {
+        fallbackContainer.classList.remove('d-none');
+        
+        // Atualizar conteúdo do fallback com código de barras visual real
+        const fallbackDiv = fallbackContainer.querySelector('.barcode-visual');
+        if (fallbackDiv) {
+          fallbackDiv.innerHTML = this.gerarCodigoBarrasVisualMelhorado(codigo);
+          
+          // Adicionar estilos CSS para as barras
+          this.adicionarEstilosCodigoBarras();
+        }
+      }
+    }
+  }
+  
+  private adicionarEstilosCodigoBarras(): void {
+    // Verificar se os estilos já foram adicionados
+    if (document.getElementById('barcode-styles')) {
+      return;
+    }
+    
+    const style = document.createElement('style');
+    style.id = 'barcode-styles';
+    style.textContent = `
+      .barcode-container-visual {
+        display: flex;
+        align-items: end;
+        justify-content: center;
+        height: 80px;
+        background: white;
+        padding: 10px;
+        margin: 10px 0;
+      }
+      
+      .barcode-bar {
+        width: 1px;
+        height: 100%;
+        background-color: #000;
+        margin: 0;
+      }
+      
+      .barcode-space {
+        width: 1px;
+        height: 100%;
+        background-color: transparent;
+        margin: 0;
+      }
+      
+      .barcode-number {
+        text-align: center;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        font-weight: bold;
+        margin-top: 5px;
+        letter-spacing: 2px;
+        color: #000;
+      }
+    `;
+    
+    document.head.appendChild(style);
+  }
+
+  private detectarFormatoCodigoBarras(codigo: string): string {
+    console.log('🔍 Detectando formato para código:', codigo, 'Tamanho:', codigo.length);
+    
+    if (codigo.length === 13 && /^\d+$/.test(codigo)) {
+      console.log('✅ Formato detectado: EAN13');
+      return 'EAN13';
+    }
+    if (codigo.length === 8 && /^\d+$/.test(codigo)) {
+      console.log('✅ Formato detectado: EAN8');
+      return 'EAN8';
+    }
+    if (codigo.length === 12 && /^\d+$/.test(codigo)) {
+      console.log('✅ Formato detectado: UPC');
+      return 'UPC';
+    }
+    
+    console.log('✅ Formato detectado: CODE128 (fallback)');
+    return 'CODE128';
+  }
+
+  private getFormatoCodigoBarras(codigo: string): string {
+    const formato = this.detectarFormatoCodigoBarras(codigo);
+    const tamanho = codigo.length;
+    return `${formato} (${tamanho} dígitos)`;
+  }
+
+  private gerarCodigoBarrasVisual(codigo: string): string {
+    // Gera representação visual com barras usando caracteres especiais
+    const barras = [];
+    for (let i = 0; i < codigo.length; i++) {
+      const digito = parseInt(codigo[i]) || 0;
+      // Padrão simples: dígitos pares = barra grossa, ímpares = barra fina
+      barras.push(digito % 2 === 0 ? '█' : '▌');
+    }
+    return `▌${barras.join('')}▌`;
+  }
+  
+  private gerarCodigoBarrasVisualMelhorado(codigo: string): string {
+    const codigoLimpo = codigo.replace(/[^0-9]/g, '');
+    
+    // Gerar código de barras HTML com CSS
+    const barcodeHtml = this.gerarCodigoBarrasHTML(codigoLimpo);
+    
+    return barcodeHtml;
+  }
+  
+  private gerarCodigoBarrasHTML(codigo: string): string {
+    // Padrões EAN13 reais para cada dígito (L-code, G-code, R-code)
+    const patternsL = {
+      '0': '0001101', '1': '0011001', '2': '0010011', '3': '0111101',
+      '4': '0100011', '5': '0110001', '6': '0101111', '7': '0111011',
+      '8': '0110111', '9': '0001011'
+    };
+    
+    const patternsG = {
+      '0': '0100111', '1': '0110011', '2': '0011011', '3': '0100001',
+      '4': '0011101', '5': '0111001', '6': '0000101', '7': '0010001',
+      '8': '0001001', '9': '0010111'
+    };
+    
+    const patternsR = {
+      '0': '1110010', '1': '1100110', '2': '1101100', '3': '1000010',
+      '4': '1011100', '5': '1001110', '6': '1010000', '7': '1000100',
+      '8': '1001000', '9': '1110100'
+    };
+    
+    // Padrões de seleção para primeiro dígito
+    const firstDigitPatterns = {
+      '0': 'LLLLLL', '1': 'LLGLGG', '2': 'LLGGLG', '3': 'LLGGGL',
+      '4': 'LGLLGG', '5': 'LGGLLG', '6': 'LGGGLL', '7': 'LGLGLG',
+      '8': 'LGLGGL', '9': 'LGGLGL'
+    };
+    
+    // Completar com zeros se necessário
+    const paddedCode = codigo.padEnd(13, '0').substring(0, 13);
+    
+    let binaryPattern = '101'; // Start guard
+    
+    // Primeiro dígito define o padrão
+    const firstDigit = paddedCode[0];
+    const pattern = firstDigitPatterns[firstDigit as keyof typeof firstDigitPatterns] || 'LLLLLL';
+    
+    // Primeiros 6 dígitos
+    for (let i = 1; i <= 6; i++) {
+      const digit = paddedCode[i] || '0';
+      if (pattern[i-1] === 'L') {
+        binaryPattern += patternsL[digit as keyof typeof patternsL];
+      } else {
+        binaryPattern += patternsG[digit as keyof typeof patternsG];
+      }
+    }
+    
+    binaryPattern += '01010'; // Center guard
+    
+    // Últimos 6 dígitos
+    for (let i = 7; i <= 12; i++) {
+      const digit = paddedCode[i] || '0';
+      binaryPattern += patternsR[digit as keyof typeof patternsR];
+    }
+    
+    binaryPattern += '101'; // End guard
+    
+    // Converter padrão binário em HTML
+    let barcodeHtml = '<div class="barcode-container-visual">';
+    
+    for (let i = 0; i < binaryPattern.length; i++) {
+      if (binaryPattern[i] === '1') {
+        barcodeHtml += '<div class="barcode-bar"></div>';
+      } else {
+        barcodeHtml += '<div class="barcode-space"></div>';
+      }
+    }
+    
+    barcodeHtml += '</div>';
+    barcodeHtml += `<div class="barcode-number">${paddedCode}</div>`;
+    
+    return barcodeHtml;
+  }
+
+  imprimirEtiqueta(produto: Produto): void {
+    const codigoBarras = produto.codigoBarras || produto.codigo || 'SEM-CODIGO';
+    
+    // Usar o mesmo sistema de renderização do visualizarCodigoBarras
+    const codigoVisualHTML = this.gerarCodigoBarrasVisualMelhorado(codigoBarras);
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Etiqueta - ${produto.nome}</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                background: white;
+              }
+              .etiqueta { 
+                border: 2px solid #000; 
+                padding: 15px; 
+                width: 400px; 
+                text-align: center;
+                background: white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin: 0 auto;
+              }
+              .nome-produto { 
+                font-weight: bold; 
+                margin-bottom: 12px; 
+                font-size: 16px;
+                word-wrap: break-word;
+                color: #333;
+              }
+              .codigo-barras-container {
+                margin: 15px 0;
+                background: white;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+              }
+              .codigo-numero {
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                font-weight: bold;
+                color: #0066cc;
+                margin-bottom: 10px;
+              }
+              .barcode-container-visual {
+                display: flex !important;
+                align-items: end;
+                justify-content: center;
+                height: 80px;
+                background: white;
+                padding: 10px;
+                margin: 10px 0;
+                border: 1px solid #eee;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .barcode-bar {
+                width: 2px !important;
+                min-width: 2px !important;
+                height: 100% !important;
+                background-color: #000 !important;
+                margin: 0;
+                flex-shrink: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .barcode-space {
+                width: 1px !important;
+                min-width: 1px !important;
+                height: 100% !important;
+                background-color: white !important;
+                margin: 0;
+                flex-shrink: 0;
+              }
+              .barcode-number {
+                text-align: center;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                font-weight: bold;
+                margin-top: 5px;
+                letter-spacing: 1px;
+                color: #666;
+              }
+              .preco { 
+                font-size: 20px; 
+                font-weight: bold; 
+                color: #d63384;
+                margin: 15px 0;
+              }
+              .info-adicional {
+                font-size: 11px;
+                color: #666;
+                margin-top: 12px;
+                text-align: left;
+                border-top: 1px solid #eee;
+                padding-top: 8px;
+              }
+              .info-linha {
+                margin: 3px 0;
+                display: flex;
+                justify-content: space-between;
+              }
+              @media print {
+                * {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                body { 
+                  margin: 0; 
+                  padding: 10px; 
+                }
+                .etiqueta { 
+                  border: 2px solid #000 !important; 
+                  box-shadow: none; 
+                }
+                .barcode-container-visual {
+                  display: flex !important;
+                  border: 1px solid #000 !important;
+                }
+                .barcode-bar {
+                  background-color: #000 !important;
+                  width: 2px !important;
+                  min-width: 2px !important;
+                }
+                .barcode-space {
+                  background-color: white !important;
+                  width: 1px !important;
+                  min-width: 1px !important;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="etiqueta">
+              <div class="nome-produto">${produto.nome}</div>
+              <div class="codigo-barras-container">
+                <div class="codigo-numero">${codigoBarras}</div>
+                ${codigoVisualHTML}
+              </div>
+              <div class="preco">R$ ${produto.preco?.toFixed(2) || '0,00'}</div>
+              <div class="info-adicional">
+                <div class="info-linha">
+                  <span>Código:</span>
+                  <span>${produto.codigo || 'N/A'}</span>
+                </div>
+                <div class="info-linha">
+                  <span>Estoque:</span>
+                  <span>${produto.estoque || 0} un.</span>
+                </div>
+                <div class="info-linha">
+                  <span>Departamento:</span>  
+                  <span>${produto.departamento || 'N/A'}</span>
+                </div>
+                <div class="info-linha">
+                  <span>Data:</span>
+                  <span>${new Date().toLocaleDateString('pt-BR')}</span>
+                </div>
+              </div>
+            </div>
+            <script>
+              setTimeout(() => {
+                window.print();
+                setTimeout(() => window.close(), 1000);
+              }, 500);
+            </script>
+          </body>
+        </html>
+      `);
     }
   }
 
-  // Gera o conteúdo HTML da etiqueta
   private gerarConteudoEtiqueta(produto: any): string {
     const codigoBarras = produto.codigoBarras || produto.codigo?.replace(/-/g, '') || 'SEM-CODIGO';
     
@@ -1671,7 +2976,7 @@ export class ProdutosComponent implements OnInit {
           <div class="codigo-barras">${codigoBarras}</div>
           <div class="preco">R$ ${produto.preco?.toFixed(2) || produto.precoVenda?.toFixed(2) || '0,00'}</div>
           <div class="info-adicional">
-            ${produto.departamento || produto.categoria || ''}<br>
+            ${produto.departamento || ''}<br>
             Gerado em: ${new Date().toLocaleDateString('pt-BR')}
           </div>
         </div>
@@ -1680,12 +2985,13 @@ export class ProdutosComponent implements OnInit {
     `;
   }
 
-  // Método para imprimir código de barras rapidamente
   imprimirCodigoBarras(produto: Produto): void {
     const codigoBarras = produto.codigoBarras || produto.codigo?.replace(/-/g, '') || 'SEM-CODIGO';
     
-    // Criar janela de impressão com código de barras
-    const printWindow = window.open('', '_blank', 'width=400,height=200');
+    // Gerar código de barras HTML com padrões EAN13 reais
+    const codigoVisualHTML = this.gerarCodigoBarrasVisualMelhorado(codigoBarras);
+    
+    const printWindow = window.open('', '_blank', 'width=600,height=400');
     if (printWindow) {
       printWindow.document.write(`
         <html>
@@ -1697,41 +3003,131 @@ export class ProdutosComponent implements OnInit {
                 text-align: center; 
                 padding: 20px; 
                 margin: 0;
-              }
-              .codigo { 
-                font-size: 24px; 
-                font-weight: bold; 
-                font-family: monospace; 
-                letter-spacing: 3px;
-                border: 2px solid #000;
-                padding: 10px;
-                margin: 20px 0;
                 background: white;
               }
-              .produto { 
-                font-size: 16px; 
-                margin-bottom: 10px; 
+              .header {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                color: #333;
+              }
+              .codigo-container {
+                border: 2px solid #000;
+                padding: 20px;
+                margin: 20px auto;
+                background: white;
+                max-width: 500px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .codigo-numero {
+                font-size: 20px;
+                font-weight: bold;
+                font-family: 'Courier New', monospace;
+                margin-bottom: 15px;
+                color: #0066cc;
+              }
+              .barcode-container-visual {
+                display: flex !important;
+                align-items: end;
+                justify-content: center;
+                height: 80px;
+                background: white;
+                padding: 10px;
+                margin: 15px 0;
+                border: 1px solid #ddd;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .barcode-bar {
+                width: 2px !important;
+                min-width: 2px !important;
+                height: 100% !important;
+                background-color: #000 !important;
+                margin: 0;
+                flex-shrink: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .barcode-space {
+                width: 1px !important;
+                min-width: 1px !important;
+                height: 100% !important;
+                background-color: white !important;
+                margin: 0;
+                flex-shrink: 0;
+              }
+              .barcode-number {
+                text-align: center;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                font-weight: bold;
+                margin-top: 10px;
+                letter-spacing: 2px;
+                color: #000;
+              }
+              .info {
+                font-size: 14px;
+                margin-top: 15px;
+                color: #666;
               }
               @media print {
-                body { padding: 10px; }
+                * {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                body { 
+                  padding: 10px; 
+                  margin: 0;
+                }
+                .codigo-container { 
+                  box-shadow: none; 
+                  border: 2px solid #000 !important;
+                }
+                .barcode-container-visual {
+                  display: flex !important;
+                  border: 1px solid #000 !important;
+                }
+                .barcode-bar {
+                  background-color: #000 !important;
+                  width: 2px !important;
+                  min-width: 2px !important;
+                }
+                .barcode-space {
+                  background-color: white !important;
+                  width: 1px !important;
+                  min-width: 1px !important;
+                }
               }
             </style>
           </head>
           <body>
-            <div class="produto">Produto: <strong>${produto.nome}</strong></div>
-            <div class="codigo">||||| ${codigoBarras} |||||</div>
-            <div>Departamento: ${produto.categoria}</div>
-            <div>Preço: R$ ${produto.preco?.toFixed(2) || '0,00'}</div>
+            <div class="header">Código de Barras: ${produto.nome}</div>
+            <div class="codigo-container">
+              <div class="codigo-numero">${codigoBarras}</div>
+              ${codigoVisualHTML}
+              <div class="info">
+                Tipo: ${produto.tipoCodigoBarras || 'EAN13'} | 
+                Departamento: ${produto.departamento || 'N/A'} |
+                Preço: R$ ${produto.preco?.toFixed(2) || '0,00'}
+              </div>
+            </div>
+            <script>
+              setTimeout(() => {
+                window.print();
+                setTimeout(() => window.close(), 1000);
+              }, 500);
+            </script>
           </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
     }
   }
 
+  // Função para obter o nome do departamento a partir do código
+  getNomeDepartamento(codigo: string | undefined): string {
+    if (!codigo) {
+      return 'Sem departamento';
+    }
+    return this.departamentos[codigo] || codigo || 'Sem departamento';
+  }
 }

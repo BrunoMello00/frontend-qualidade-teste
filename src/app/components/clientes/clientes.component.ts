@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClienteService, Cliente } from '../../services/cliente.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-clientes',
@@ -19,23 +20,28 @@ export class ClientesComponent implements OnInit {
   searchTerm = '';
   selectedCategory = '';
   
-  // Filtros
   categoryFilter = '';
   statusFilter = '';
   
   constructor(
     private fb: FormBuilder,
-    private clienteService: ClienteService
+    private clienteService: ClienteService,
+    public authService: AuthService
   ) {
     this.clienteForm = this.fb.group({
       nome: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
       telefone: ['', [Validators.required]],
       cpf: ['', [Validators.required]],
-      endereco: ['', [Validators.required]],
-      cidade: [''],
-      estado: [''],
-      cep: [''],
+      endereco: this.fb.group({
+        rua: ['', [Validators.required]],
+        numero: [''],
+        complemento: [''],
+        bairro: [''],
+        cidade: [''],
+        cep: [''],
+        estado: ['']
+      }),
       dataNascimento: ['']
     });
 
@@ -51,8 +57,7 @@ export class ClientesComponent implements OnInit {
   }
 
   loadClientes(): void {
-    // Pedir apenas clientes ativos — o mock faz soft-delete (ativo=false)
-    this.clienteService.listarClientes(0, 20, undefined, undefined, true).subscribe(response => {
+    this.clienteService.listarClientes({ ativo: true }, 0, 20).subscribe(response => {
       this.clientes = response.content;
     });
   }
@@ -79,13 +84,11 @@ export class ClientesComponent implements OnInit {
       const clienteData = this.clienteForm.value;
       
       if (this.editingCliente) {
-        // Atualizar cliente
         this.clienteService.atualizarCliente(this.editingCliente.id!, clienteData).subscribe(() => {
           this.loadClientes();
           this.closeModal();
         });
       } else {
-        // Criar novo cliente
         this.clienteService.criarCliente(clienteData).subscribe(() => {
           this.loadClientes();
           this.closeModal();
@@ -109,7 +112,6 @@ export class ClientesComponent implements OnInit {
         (cliente.email && cliente.email.toLowerCase().includes(this.searchTerm.toLowerCase())) ||
         (cliente.cpf && cliente.cpf.includes(this.searchTerm));
         
-      // Como não temos categoria no backend, vou remover esse filtro por agora
       const matchesCategory = true; // !this.categoryFilter || cliente.categoria === this.categoryFilter;
       
       return matchesSearch && matchesCategory;
@@ -132,8 +134,6 @@ export class ClientesComponent implements OnInit {
   visualizarPerfilCliente(cliente: Cliente): void {
     console.log('Visualizando perfil do cliente:', cliente);
     
-    // Implementar visualização de perfil usando dados do cliente
-    // Criar um objeto de detalhes para exibição
     this.clienteDetalhes = {
       cliente: cliente,
       vendas: [], // TODO: Implementar busca de vendas do cliente
@@ -142,7 +142,6 @@ export class ClientesComponent implements OnInit {
       totalGasto: 0 // TODO: Calcular total gasto
     };
     
-    // Abrir modal de detalhes
     const modalElement = document.getElementById('detalhesModal');
     if (modalElement) {
       const modal = new (window as any).bootstrap.Modal(modalElement);
@@ -150,11 +149,9 @@ export class ClientesComponent implements OnInit {
     }
   }
 
-  // Métodos para o modal de detalhes completos
   verDetalhesCompletos(cliente: Cliente): void {
     console.log('Carregando detalhes completos do cliente:', cliente);
     
-    // Buscar dados completos do cliente
     if (cliente.id) {
       this.clienteService.buscarPorId(cliente.id).subscribe({
         next: (clienteCompleto) => {
@@ -166,7 +163,6 @@ export class ClientesComponent implements OnInit {
             totalGasto: 0 // TODO: Calcular total gasto
           };
           
-          // Abrir modal de detalhes
           const modalElement = document.getElementById('detalhesModal');
           if (modalElement) {
             const modal = new (window as any).bootstrap.Modal(modalElement);
@@ -175,12 +171,10 @@ export class ClientesComponent implements OnInit {
         },
         error: (error) => {
           console.error('❌ Erro ao carregar detalhes do cliente:', error);
-          // Fallback para dados básicos
           this.visualizarPerfilCliente(cliente);
         }
       });
     } else {
-      // Fallback para dados básicos se não há ID
       this.visualizarPerfilCliente(cliente);
     }
   }
@@ -196,11 +190,8 @@ export class ClientesComponent implements OnInit {
       const clienteId = this.clienteDetalhes.cliente.id;
       
       console.log('Ajustando pontos do cliente:', clienteId, formData.pontos);
-      // TODO: Implementar endpoint de pontos no backend
       // this.clienteService.adicionarPontos(clienteId, parseInt(formData.pontos), formData.observacoes || 'Ajuste manual')
       
-      // Por enquanto, apenas log
-      console.log('✅ Pontos ajustados com sucesso (simulação)');
       this.fecharDetalhesModal();
       this.loadClientes();
     }

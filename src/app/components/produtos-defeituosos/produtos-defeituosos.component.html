@@ -1,0 +1,320 @@
+<div class="produtos-defeituosos-container">
+  <!-- Header -->
+  <div class="header-section">
+    <h2 class="page-title">
+      <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+      Gestão de Produtos Defeituosos
+    </h2>
+    <div class="action-buttons">
+      <button class="btn btn-outline-success" (click)="carregarProdutosDefeituosos()">
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        Atualizar
+      </button>
+      <button class="btn btn-outline-primary" (click)="exportarRelatorio()">
+        <i class="bi bi-file-earmark-excel me-1"></i>
+        Exportar
+      </button>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="stats-section mb-4">
+    <div class="row">
+      <div class="col-md-3">
+        <div class="stat-card bg-warning">
+          <div class="stat-icon">
+            <i class="bi bi-exclamation-circle"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ stats.totalProdutosDefeituosos }}</h3>
+            <p>Produtos Defeituosos</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card bg-danger">
+          <div class="stat-icon">
+            <i class="bi bi-currency-dollar"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ formatarMoeda(stats.valorTotalEstoque) }}</h3>
+            <p>Valor Original</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card bg-info">
+          <div class="stat-icon">
+            <i class="bi bi-tag"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ formatarMoeda(stats.valorTotalComDesconto) }}</h3>
+            <p>Valor com Desconto</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card bg-success">
+          <div class="stat-icon">
+            <i class="bi bi-arrow-down"></i>
+          </div>
+          <div class="stat-content">
+            <h3>{{ formatarMoeda(stats.economiaTotal) }}</h3>
+            <p>Perda Estimada</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros e Busca -->
+  <div class="filters-section mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-4">
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Buscar por nome ou código..."
+            [(ngModel)]="searchTerm">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" [(ngModel)]="orderBy">
+          <option value="nome">Ordenar por Nome</option>
+          <option value="quantidade">Ordenar por Quantidade</option>
+          <option value="desconto">Ordenar por Desconto</option>
+          <option value="valor">Ordenar por Valor</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select class="form-select" [(ngModel)]="orderDirection">
+          <option value="asc">Crescente</option>
+          <option value="desc">Decrescente</option>
+        </select>
+      </div>
+      <div class="col-md-3 text-end">
+        <span class="text-muted">
+          {{ produtosFiltrados.length }} produto(s) encontrado(s)
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Carregando...</span>
+    </div>
+    <p class="mt-2 text-muted">Carregando produtos defeituosos...</p>
+  </div>
+
+  <!-- Mensagens de Sucesso/Erro -->
+  <div *ngIf="successMessage" class="alert alert-success alert-dismissible fade show">
+    <i class="bi bi-check-circle me-2"></i>
+    {{ successMessage }}
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger alert-dismissible fade show">
+    <i class="bi bi-exclamation-circle me-2"></i>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Tabela de Produtos -->
+  <div class="table-section" *ngIf="!isLoading">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th scope="col">Produto</th>
+            <th scope="col">Código</th>
+            <th scope="col">Qtd. Defeituosa</th>
+            <th scope="col">Preço Original</th>
+            <th scope="col">Preço c/ Desconto</th>
+            <th scope="col">% Desconto</th>
+            <th scope="col">Perda Estimada</th>
+            <th scope="col">Última Atualização</th>
+            <th scope="col" class="text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let produto of produtosFiltrados; trackBy: trackByProdutoId">
+            <td>
+              <div class="produto-info">
+                <strong>{{ produto.nomeProduto }}</strong>
+                <span class="badge bg-warning ms-2">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  Defeituoso
+                </span>
+              </div>
+            </td>
+            <td>
+              <code>{{ produto.codigoBarras || 'N/A' }}</code>
+            </td>
+            <td>
+              <span class="badge bg-secondary">
+                {{ produto.quantidadeDefeituosa }}
+              </span>
+            </td>
+            <td class="text-end">
+              <strong>{{ formatarMoeda(produto.precoOriginal) }}</strong>
+            </td>
+            <td class="text-end">
+              <span class="text-success">
+                {{ formatarMoeda(produto.precoDefeituoso) }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info">
+                {{ formatarPercentual(produto.percentualDesconto) }}
+              </span>
+            </td>
+            <td class="text-end text-danger">
+              <strong>{{ formatarMoeda(produto.valorEstimadoDesconto) }}</strong>
+            </td>
+            <td>
+              <small class="text-muted">{{ produto.dataUltimaAtualizacao }}</small>
+            </td>
+            <td class="text-center">
+              <div class="btn-group" role="group">
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="abrirModalGerenciar(produto)"
+                  title="Gerenciar Produto">
+                  <i class="bi bi-gear"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-outline-success"
+                  (click)="marcarComoNormal(produto)"
+                  title="Marcar como Normal">
+                  <i class="bi bi-check-circle"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-outline-info"
+                  (click)="criarPromocao(produto)"
+                  title="Criar Promoção">
+                  <i class="bi bi-tag"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="produtosFiltrados.length === 0 && !isLoading" class="empty-state text-center py-5">
+        <i class="bi bi-check-circle display-1 text-success"></i>
+        <h4 class="mt-3">Nenhum produto defeituoso encontrado</h4>
+        <p class="text-muted">Isso é uma boa notícia! Todos os produtos estão em perfeitas condições.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Gerenciamento -->
+<div class="modal fade" id="modalGerenciar" [class.show]="showModalGerenciar" [style.display]="showModalGerenciar ? 'block' : 'none'"
+     tabindex="-1" [attr.aria-hidden]="!showModalGerenciar">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-gear me-2"></i>
+          Gerenciar Produto Defeituoso
+        </h5>
+        <button type="button" class="btn-close" (click)="fecharModalGerenciar()"></button>
+      </div>
+      <div class="modal-body" *ngIf="produtoSelecionado">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <h6 class="fw-bold">{{ produtoSelecionado.nome }}</h6>
+            <p class="text-muted mb-1">Código: {{ produtoSelecionado.codigoBarras || 'N/A' }}</p>
+            <p class="text-muted">Descrição: {{ produtoSelecionado.descricao || 'N/A' }}</p>
+          </div>
+          <div class="col-md-6 text-end">
+            <div class="product-prices">
+              <div class="mb-2">
+                <small class="text-muted">Preço Original:</small><br>
+                <strong class="fs-5">{{ formatarMoeda(produtoSelecionado.preco) }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label">Percentual de Desconto (%)</label>
+              <input
+                type="number"
+                class="form-control"
+                [(ngModel)]="novoPercentualDesconto"
+                (ngModelChange)="calcularPrecoComDesconto()"
+                min="0"
+                max="100"
+                step="0.1">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label">Novo Preço (R$)</label>
+              <input
+                type="number"
+                class="form-control"
+                [(ngModel)]="novoPrecoDefeituoso"
+                (ngModelChange)="calcularPercentualDesconto()"
+                min="0"
+                step="0.01">
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Observações</label>
+          <textarea
+            class="form-control"
+            rows="3"
+            [(ngModel)]="observacoes"
+            placeholder="Descreva o tipo de defeito ou observações sobre o produto..."></textarea>
+        </div>
+
+        <div class="calculation-summary bg-light p-3 rounded">
+          <div class="row">
+            <div class="col-md-4">
+              <small class="text-muted">Preço Original:</small><br>
+              <strong>{{ formatarMoeda(produtoSelecionado.preco) }}</strong>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Desconto:</small><br>
+              <span class="text-warning">{{ formatarPercentual(novoPercentualDesconto) }}</span>
+            </div>
+            <div class="col-md-4">
+              <small class="text-muted">Novo Preço:</small><br>
+              <strong class="text-success">{{ formatarMoeda(novoPrecoDefeituoso) }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="fecharModalGerenciar()">
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="atualizarProdutoDefeituoso()"
+          [disabled]="isLoading">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+          Salvar Alterações
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showModalGerenciar" *ngIf="showModalGerenciar"></div>

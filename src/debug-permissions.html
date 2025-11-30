@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Permissões</title>
+</head>
+<body>
+    <h1>Debug de Permissões do Sistema</h1>
+    
+    <div id="info">
+        <p>Abra o console do navegador (F12) e execute:</p>
+        <code>
+            // Para testar as permissões do usuário logado:<br>
+            const auth = angular.injector(['ng']).get('AuthService');<br>
+            console.log('Usuario atual:', auth.getCurrentUser());<br>
+            console.log('É OWNER?', auth.isOwner());<br>
+            console.log('Pode gerenciar vendas?', auth.canManageSales());<br>
+            console.log('Permissões:', auth.permissions$.value);
+        </code>
+    </div>
+    
+    <div>
+        <p>Ou acesse: <a href="http://localhost:4200">http://localhost:4200</a></p>
+        <p>Faça login como: owner@sistema.com / password</p>
+        <p>E teste se o menu de vendas aparece e se consegue criar vendas.</p>
+    </div>
+
+    <script>
+        console.log('=== DEBUG DE PERMISSÕES ===');
+        console.log('Página carregada. Faça login no sistema principal e volte aqui para testar.');
+        
+        // Função auxiliar que pode ser chamada no console
+        window.debugPermissions = function() {
+            console.log('=== TESTE DE PERMISSÕES ===');
+            const currentUser = localStorage.getItem('current_user');
+            const permissions = localStorage.getItem('user_permissions');
+            const token = localStorage.getItem('auth_token');
+            
+            console.log('Token:', token ? 'Presente' : 'Ausente');
+            console.log('Usuário:', currentUser ? JSON.parse(currentUser) : 'Não encontrado');
+            console.log('Permissões:', permissions ? JSON.parse(permissions) : 'Não encontrado');
+            
+            if (currentUser) {
+                const user = JSON.parse(currentUser);
+                console.log('Tipo do usuário:', user.tipoUsuario);
+                console.log('É OWNER?', user.tipoUsuario === 'OWNER');
+                
+                if (permissions) {
+                    const perms = JSON.parse(permissions);
+                    console.log('Tem VENDAS_GERENCIAR?', perms.includes('VENDAS_GERENCIAR'));
+                }
+            }
+        };
+        
+        console.log('Execute debugPermissions() para testar as permissões!');
+    </script>
+</body>
+</html>

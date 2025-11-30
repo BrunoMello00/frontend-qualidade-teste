@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, timer, BehaviorSubject } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { timer, BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -41,26 +40,15 @@ export class SessionTimeoutService {
     this.lastActivity = new Date();
   }
 
-  getTimeRemaining(): Observable<number> {
-    return this.timeoutSubject.asObservable();
-  }
 
-  isWarningTime(): Observable<boolean> {
-    return this.getTimeRemaining().pipe(
-      map(seconds => seconds <= this.warningMinutes * 60 && seconds > 0)
-    );
-  }
 
   private logout(): void {
-    // Implementar logout automático
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = '/login';
   }
 
-  extendSession(): void {
-    this.resetTimer();
-  }
+
 
   setTimeoutDuration(minutes: number): void {
     this.timeoutMinutes = minutes;

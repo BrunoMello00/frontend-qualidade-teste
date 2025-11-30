@@ -1,9 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { BaseService } from './base.service';
-import { HttpClient } from '@angular/common/http';
-import { EnvironmentService } from './environment.service';
-import { MockDataService } from './mock-data.service';
 
 export interface PasswordStrengthResponse {
   score: number;
@@ -16,7 +13,6 @@ export interface PasswordStrengthResponse {
   temCaractereEspecial: boolean;
   semPadroesInseguros: boolean;
   sugestoesMelhoria: string[];
-  // Propriedades adicionais para compatibilidade
   isValid: boolean;
   errors: string[];
   valida: boolean;
@@ -49,22 +45,12 @@ export interface PasswordPolicyResponse {
   providedIn: 'root'
 })
 export class PasswordValidationService extends BaseService {
-  constructor(http: HttpClient, environmentService: EnvironmentService, private mock: MockDataService) {
-    super(http, environmentService);
-  }
 
   validarSenha(senha: string): Observable<PasswordValidationResponse> {
-    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
-      const local = this.validatePasswordLocally(senha);
-      return of({ valid: local.isValid, errors: local.erros || [] });
-    }
     return this.post<PasswordValidationResponse>('password/validar', { senha });
   }
 
   analisarForcaSenha(senha: string): Observable<PasswordStrengthResponse> {
-    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
-      return of(this.validatePasswordLocally(senha));
-    }
     return this.post<PasswordStrengthResponse>('password/analise', { senha });
   }
 
@@ -73,17 +59,12 @@ export class PasswordValidationService extends BaseService {
   }
 
   validarNovaSenha(senhaAtual: string, novaSenha: string): Observable<PasswordValidationResponse> {
-    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
-      const local = this.validatePasswordLocally(novaSenha);
-      return of({ valid: local.isValid, errors: local.erros || [] });
-    }
     return this.post<PasswordValidationResponse>('password/validar-nova', { 
       senhaAtual, 
       novaSenha 
     });
   }
 
-  // Métodos adicionais para compatibilidade
   analyzePassword(senha: string): Observable<PasswordStrengthResponse> {
     return this.analisarForcaSenha(senha);
   }
@@ -109,7 +90,6 @@ export class PasswordValidationService extends BaseService {
     const feedback: string[] = [];
     const sugestoesMelhoria: string[] = [];
     
-    // Verificações de força
     const comprimentoAdequado = password.length >= 8;
     const temMaiuscula = /[A-Z]/.test(password);
     const temMinuscula = /[a-z]/.test(password);
@@ -146,7 +126,6 @@ export class PasswordValidationService extends BaseService {
       temCaractereEspecial,
       semPadroesInseguros,
       sugestoesMelhoria,
-      // Propriedades adicionais para compatibilidade
       isValid: score >= 4,
       errors: sugestoesMelhoria,
       valida: score >= 4,
@@ -162,13 +141,6 @@ export class PasswordValidationService extends BaseService {
   }
 
   generateStrongPassword(length: number): Observable<{ password: string; senha: string }> {
-    if (this.environmentService?.isLocal && this.environmentService.isLocal()) {
-      // gerar senha forte localmente
-      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-      let pwd = '';
-      for (let i = 0; i < (length || 12); i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-      return of({ password: pwd, senha: pwd });
-    }
     return this.post<{ password: string; senha: string }>('password/gerar-forte', { length });
   }
 }

@@ -2,6 +2,71 @@
    TEMA LARANJA PARA PRODUTOS
    =================================== */
 
+/* Estilos para código de barras */
+.barcode-container {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+}
+
+.barcode-svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.barcode-visual {
+  font-family: 'Courier New', monospace;
+  font-size: 24px;
+  letter-spacing: -1px;
+  color: #000;
+  background: #fff;
+  padding: 8px;
+  border-radius: 4px;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+.fallback-barcode {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animação de hover para botão de código de barras */
+.btn-outline-info:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+  transition: all 0.2s ease;
+}
+
+/* Responsividade para código de barras */
+@media (max-width: 768px) {
+  .barcode-visual {
+    font-size: 18px;
+    letter-spacing: -0.5px;
+  }
+  
+  .modal-lg {
+    max-width: 95%;
+  }
+}
+
+/* Estilo para etiqueta de impressão */
+@media print {
+  .barcode-visual {
+    font-size: 20px;
+    letter-spacing: 0px;
+    color: #000 !important;
+    background: #fff !important;
+  }
+}
+
 /* Modal headers laranjas */
 .modal-header.bg-primary {
   background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
@@ -217,4 +282,90 @@
 @keyframes pulse-warning {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+/* ===================================
+   ESTILOS PARA STATUS ATIVO/INATIVO
+   =================================== */
+
+/* Badge pequeno para status */
+.badge-sm {
+  font-size: 0.7rem !important;
+  padding: 0.2rem 0.4rem !important;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+/* Badge para status inativo */
+.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+/* Ícones de status */
+.bi-check-circle-fill.text-success {
+  color: #198754 !important;
+}
+
+.bi-x-circle-fill.text-muted {
+  color: #6c757d !important;
+}
+
+/* ===================================
+   MELHORIAS DE USABILIDADE - TAMANHOS
+   =================================== */
+
+/* Animação pulse para botão "Adicionar Primeiro Tamanho" */
+.pulse-button {
+  animation: pulseGlow 2s ease-in-out infinite;
+  transition: all 0.3s ease;
+}
+
+.pulse-button:not(:disabled):hover {
+  animation: none;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.4);
+    transform: translateY(-1px);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+  }
+}
+
+/* Melhorias visuais para badges de tamanhos */
+.badge.cursor-pointer {
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.badge.cursor-pointer:hover {
+  background-color: #ff6b35 !important;
+  color: white !important;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+}
+
+/* Destaque para campos focados na tabela de tamanhos */
+.table input:focus {
+  border-color: #ff6b35 !important;
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.15) !important;
+  background-color: #fff8f5 !important;
+}
+
+/* Animação suave para scroll automático */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Destaque para seção de tamanhos quando ativada */
+.tamanhos-card.show {
+  border-left: 4px solid #ff6b35;
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.1);
 }

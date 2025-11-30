@@ -1,15 +1,12 @@
 <div class="app-container">
   
-  <!-- Environment Debug Component (apenas em desenvolvimento) -->
-  <app-environment-debug></app-environment-debug>
-  
   <!-- Navbar Bootstrap quando autenticado -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top" *ngIf="isAuthenticated$ | async">
     <div class="container-fluid">
       
       <!-- Logo e Título -->
       <a class="navbar-brand fw-bold" 
-         [routerLink]="authService.canViewDashboard() ? '/dashboard' : '/produtos'" 
+         [routerLink]="getDefaultRoute()" 
          style="cursor: pointer;">
         <i class="bi bi-box-seam me-2"></i>
         Sistema de Estoque
@@ -31,85 +28,77 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           
-          <!-- Dashboard -->
-          <li class="nav-item" *ngIf="authService.canViewDashboard()">
+          <!-- Dashboard - Apenas ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessDashboardPage()">
             <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">
               <i class="bi bi-speedometer2 me-1"></i>
               Dashboard
             </a>
           </li>
           
-          <!-- Dropdown Produtos e Estoque -->
-          <li class="nav-item dropdown" *ngIf="authService.canViewProducts() || authService.canManageStock()">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <!-- Produtos/Catálogo - COMPRAS, ADMIN, OWNER, ESTOQUISTA -->
+          <li class="nav-item" *ngIf="authService.canAccessCatalogPage()">
+            <a class="nav-link" routerLink="/produtos" routerLinkActive="active">
               <i class="bi bi-box me-1"></i>
-              Produtos
+              {{ authService.isCompras() ? 'Catálogo' : 'Produtos' }}
             </a>
-            <ul class="dropdown-menu">
-              <li *ngIf="authService.canViewProducts()">
-                <a class="dropdown-item" routerLink="/produtos">
-                  <i class="bi bi-box me-2"></i>Catálogo
-                </a>
-              </li>
-              <li *ngIf="authService.canManageStock()">
-                <a class="dropdown-item" routerLink="/estoque">
-                  <i class="bi bi-boxes me-2"></i>Estoque
-                </a>
-              </li>
-            </ul>
           </li>
           
-          <!-- Vendas -->
-          <li class="nav-item" *ngIf="authService.canManageSales()">
+          <!-- Estoque - Apenas ESTOQUISTA, ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessEstoquePage()">
+            <a class="nav-link" routerLink="/estoque" routerLinkActive="active">
+              <i class="bi bi-boxes me-1"></i>
+              Estoque
+            </a>
+          </li>
+          
+          <!-- Vendas - Apenas VENDEDOR, ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessVendasPage()">
             <a class="nav-link" routerLink="/vendas" routerLinkActive="active">
               <i class="bi bi-cart-check me-1"></i>
               Vendas
             </a>
           </li>
           
-          <!-- Dropdown Clientes e Eventos -->
-          <li class="nav-item dropdown" *ngIf="authService.canManageClients() || authService.canManageEvents()">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <!-- Clientes - Apenas VENDEDOR, ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessClientesPage()">
+            <a class="nav-link" routerLink="/clientes" routerLinkActive="active">
               <i class="bi bi-people me-1"></i>
               Clientes
             </a>
-            <ul class="dropdown-menu">
-              <li *ngIf="authService.canManageClients()">
-                <a class="dropdown-item" routerLink="/clientes">
-                  <i class="bi bi-people me-2"></i>Gerenciar Clientes
-                </a>
-              </li>
-              <li *ngIf="authService.canManageEvents()">
-                <a class="dropdown-item" routerLink="/eventos">
-                  <i class="bi bi-calendar-event me-2"></i>Eventos
-                </a>
-              </li>
-            </ul>
           </li>
           
-          <!-- Relatórios -->
-          <li class="nav-item" *ngIf="authService.canViewReports()">
+          <!-- Eventos - Apenas VENDEDOR, ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessEventosPage()">
+            <a class="nav-link" routerLink="/eventos" routerLinkActive="active">
+              <i class="bi bi-calendar-event me-1"></i>
+              Eventos
+            </a>
+          </li>
+          
+          <!-- Relatórios - Apenas ADMIN e OWNER -->
+          <li class="nav-item" *ngIf="authService.canAccessReportsPage()">
             <a class="nav-link" routerLink="/relatorios" routerLinkActive="active">
               <i class="bi bi-graph-up me-1"></i>
               Relatórios
             </a>
           </li>
           
-          <!-- Dropdown Administração - Apenas para Administradores -->
-          <li class="nav-item dropdown" *ngIf="authService.canManageUsers()">
+          <!-- Administração - Apenas ADMIN e OWNER -->
+          <li class="nav-item dropdown" *ngIf="authService.canAccessUsersPage()">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="bi bi-gear me-1"></i>
               Administração
             </a>
             <ul class="dropdown-menu">
               <li>
-                <a class="dropdown-item" routerLink="/usuarios">
+                <a class="dropdown-item" routerLink="/user-management">
                   <i class="bi bi-person-gear me-2"></i>Colaboradores
                 </a>
               </li>
               <li><hr class="dropdown-divider"></li>
               <li>
-                <a class="dropdown-item" routerLink="/configuracoes/pontuacao">
+                <a class="dropdown-item" routerLink="/sistema-pontuacao">
                   <i class="bi bi-star me-2"></i>Sistema de Pontuação
                 </a>
               </li>

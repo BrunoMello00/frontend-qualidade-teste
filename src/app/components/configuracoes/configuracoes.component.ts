@@ -29,7 +29,6 @@ export class ConfiguracoesComponent implements OnInit {
   successMessage = '';
   errorMessage = '';
   
-  // Estados de configuração
   activeTab = 'geral';
   showMfaSetup = false;
   mfaStep = 1; // 1: escolher método, 2: configurar, 3: verificar
@@ -45,13 +44,10 @@ export class ConfiguracoesComponent implements OnInit {
     this.initializeForms();
     this.loadConfigurations();
     
-    // Inicializar monitoramento de sessão
     this.sessionTimeoutService.startMonitoring();
     
-    // Escutar mudanças no formulário para aplicar em tempo real
     this.configForm.get('sessaoTimeout')?.valueChanges.subscribe(timeout => {
       if (timeout) {
-        console.log('⏱️ Mudança de timeout detectada:', timeout);
         this.sessionTimeoutService.setTimeoutDuration(timeout);
         this.salvarConfiguracaoImediata('sessaoTimeout', timeout);
         this.showToast(`Timeout configurado para ${timeout} minutos`, 'success');
@@ -60,13 +56,11 @@ export class ConfiguracoesComponent implements OnInit {
   }
 
   private initializeForms(): void {
-    // Formulário de configurações gerais (dados sempre sincronizados)
     this.configForm = this.fb.group({
       manterLogado: [false],
       sessaoTimeout: [30]
     });
 
-    // Formulário de MFA
     this.mfaForm = this.fb.group({
       method: ['', Validators.required],
       email: [''],
@@ -76,27 +70,19 @@ export class ConfiguracoesComponent implements OnInit {
   }
 
   private loadConfigurations(): void {
-    console.log('📂 Carregando configurações...');
     
-    // Carregar configurações salvas do localStorage ou API
     const savedConfig = localStorage.getItem('userConfig');
     if (savedConfig) {
       const config = JSON.parse(savedConfig);
-      console.log('📋 Configurações encontradas:', config);
       this.configForm.patchValue(config);
       
-      // Aplicar configurações carregadas
       this.aplicarConfiguracoes(config);
     } else {
-      console.log('🆕 Primeira vez - aplicando configurações padrão');
-      // Aplicar configurações padrão na primeira vez
       const defaultConfig = this.configForm.value;
       this.aplicarConfiguracoes(defaultConfig);
-      // Salvar configurações padrão
       localStorage.setItem('userConfig', JSON.stringify(defaultConfig));
     }
 
-    // Carregar configuração MFA
     const savedMfa = localStorage.getItem('mfaConfig');
     if (savedMfa) {
       this.mfaConfig = JSON.parse(savedMfa);
@@ -109,7 +95,6 @@ export class ConfiguracoesComponent implements OnInit {
     this.clearMessages();
   }
 
-  // Configurações Gerais
   onConfigSubmit(): void {
     if (this.configForm.valid) {
       this.isLoading = true;
@@ -118,10 +103,8 @@ export class ConfiguracoesComponent implements OnInit {
       setTimeout(() => {
         const config = this.configForm.value;
         
-        // Salvar configurações
         localStorage.setItem('userConfig', JSON.stringify(config));
         
-        // Aplicar mudanças imediatamente
         this.aplicarConfiguracoes(config);
         
         this.isLoading = false;
@@ -133,25 +116,18 @@ export class ConfiguracoesComponent implements OnInit {
   }
 
   private aplicarConfiguracoes(config: any): void {
-    console.log('⚙️ Aplicando configurações:', config);
     
-    // Configurar timeout de sessão usando o novo serviço
     this.sessionTimeoutService.setTimeoutDuration(config.sessaoTimeout);
     this.sessionTimeoutService.startMonitoring();
     
-    // Log para debug
-    console.log('✅ Configurações aplicadas com sucesso:', config);
   }
 
   private salvarConfiguracaoImediata(campo: string, valor: any): void {
-    // Carregar configurações existentes
     const savedConfig = localStorage.getItem('userConfig');
     let config = savedConfig ? JSON.parse(savedConfig) : this.configForm.value;
     
-    // Atualizar campo específico
     config[campo] = valor;
     
-    // Salvar de volta no localStorage
     localStorage.setItem('userConfig', JSON.stringify(config));
     
     console.log('💾 Configuração salva automaticamente:', campo, '=', valor);
@@ -161,33 +137,27 @@ export class ConfiguracoesComponent implements OnInit {
     console.log('🎨 Aplicando tema:', tema);
     const body = document.body;
     
-    // Remover todas as classes de tema existentes
     body.classList.remove('tema-claro', 'tema-escuro', 'tema-auto');
     
-    // Adicionar nova classe de tema
     switch (tema) {
       case 'escuro':
         body.classList.add('tema-escuro');
         body.setAttribute('data-bs-theme', 'dark');
-        console.log('✅ Tema escuro aplicado');
         this.showToast('Tema escuro aplicado!', 'success');
         break;
       case 'auto':
         body.classList.add('tema-auto');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         body.setAttribute('data-bs-theme', prefersDark ? 'dark' : 'light');
-        console.log('✅ Tema automático aplicado (sistema:', prefersDark ? 'escuro' : 'claro', ')');
         this.showToast('Tema automático aplicado!', 'success');
         break;
       default: // 'claro'
         body.classList.add('tema-claro');
         body.setAttribute('data-bs-theme', 'light');
-        console.log('✅ Tema claro aplicado');
         this.showToast('Tema claro aplicado!', 'success');
         break;
     }
     
-    // Log das classes aplicadas para debug
     console.log('🔍 Classes do body após aplicar tema:', Array.from(body.classList));
   }
 
@@ -220,7 +190,6 @@ export class ConfiguracoesComponent implements OnInit {
     
     document.body.appendChild(toast);
     
-    // Auto remover após 4 segundos
     setTimeout(() => {
       if (toast.parentElement) {
         toast.remove();
@@ -228,7 +197,6 @@ export class ConfiguracoesComponent implements OnInit {
     }, 4000);
   }
 
-  // MFA Setup
   startMfaSetup(): void {
     this.showMfaSetup = true;
     this.mfaStep = 1;
@@ -243,7 +211,6 @@ export class ConfiguracoesComponent implements OnInit {
     this.mfaForm.patchValue({ method });
     this.mfaStep = 2;
     
-    // Pre-preencher dados se disponíveis
     if (method === 'email') {
       this.authService.currentUser$.subscribe(user => {
         if (user?.email) {
@@ -258,7 +225,6 @@ export class ConfiguracoesComponent implements OnInit {
       this.isLoading = true;
       this.clearMessages();
 
-      // Simular envio de código
       setTimeout(() => {
         this.isLoading = false;
         this.mfaStep = 3;
@@ -283,9 +249,7 @@ export class ConfiguracoesComponent implements OnInit {
     this.isLoading = true;
     this.clearMessages();
 
-    // Simular verificação do código
     setTimeout(() => {
-      // Código de demonstração sempre aceita '123456'
       if (code === '123456') {
         const oldMfaEnabled = this.mfaConfig.enabled;
         
@@ -331,7 +295,6 @@ export class ConfiguracoesComponent implements OnInit {
     this.clearMessages();
   }
 
-  // Utilitários
   getMfaDestination(): string {
     const method = this.mfaForm.get('method')?.value;
     if (method === 'email') {
@@ -368,29 +331,23 @@ export class ConfiguracoesComponent implements OnInit {
     }, 3000);
   }
 
-  // Reset de configurações
   resetConfigurations(): void {
     if (confirm('Tem certeza que deseja restaurar as configurações padrão?\n\nIsso irá:\n- Restaurar timeout para 30 minutos\n- Desativar MFA\n- Restaurar todas as outras configurações')) {
       
       this.isLoading = true;
       
       setTimeout(() => {
-        // Limpar configurações salvas
         localStorage.removeItem('userConfig');
         localStorage.removeItem('mfaConfig');
         
-        // Limpar timeout de sessão
         if ((window as any).sessionTimeout) {
           clearTimeout((window as any).sessionTimeout);
         }
         
-        // Resetar MFA
         this.mfaConfig = { enabled: false, method: null };
         
-        // Reinicializar formulários
         this.initializeForms();
         
-        // Aplicar configurações padrão
         const defaultConfig = this.configForm.value;
         this.aplicarConfiguracoes(defaultConfig);
         

@@ -1,0 +1,88 @@
+# ========================================
+# CONFIGURAÇÕES PARA DESENVOLVIMENTO LOCAL
+# ========================================
+
+spring:
+  # Configurações do H2 para desenvolvimento local
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  
+  # Hibernate para H2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        '[format_sql]': true
+  
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # Flyway para migrações em modo local
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: false
+    out-of-order: true
+  
+  # Redis completamente desabilitado em local
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ""
+      ssl:
+        enabled: false
+      timeout: 60000
+  
+  # Desabilitar auto-configuração do Redis
+  autoconfigure:
+    exclude: 
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+  
+  # Email desabilitado em local
+  mail:
+    host: ""
+    port: 0
+    username: ""
+    password: ""
+
+# Configurações customizadas da aplicação
+app:
+  # CORS para desenvolvimento local  
+  cors:
+    allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+
+application:
+  # JWT Secret local
+  jwt:
+    secret: minha-chave-secreta-super-segura-2024-para-sistema-estoque-vendas-local-h2
+  
+  # CORS para desenvolvimento local
+  cors:
+    allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+
+# Desabilitar health checks desnecessários em modo local
+management:
+  health:
+    mail:
+      enabled: false
+    redis:
+      enabled: false
+
+# Logging para desenvolvimento
+logging:
+  level:
+    '[com.tcc.estoque]': DEBUG
+    '[org.springframework.security]': INFO
+    '[org.hibernate.SQL]': DEBUG
+    '[org.hibernate.type.descriptor.sql.BasicBinder]': TRACE

@@ -13,6 +13,7 @@
             <p class="text-muted mb-0">Cadastre e gerencie seus produtos</p>
           </div>
           <button 
+            *ngIf="authService.canManageProducts()"
             class="btn btn-primary btn-custom" 
             (click)="toggleForm()">
             <i class="bi {{ showForm ? 'bi-x-circle' : 'bi-plus-circle' }} me-2"></i>
@@ -39,7 +40,7 @@
     </div>
 
     <!-- Formulário de Produto -->
-    <div class="row mb-4" *ngIf="showForm">
+    <div class="row mb-4" *ngIf="showForm && authService.canManageProducts()">
       <div class="col-12">
         <div class="card card-custom shadow-custom slide-up">
           <div class="card-header bg-gradient-primary text-white">
@@ -141,27 +142,7 @@
                   </div>
                 </div>
 
-                <!-- Estoque -->
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Estoque Inicial *</label>
-                  <input 
-                    type="number" 
-                    class="form-control form-control-custom"
-                    formControlName="estoque"
-                    placeholder="1"
-                    min="1"
-                    step="1"
-                    (input)="formatarEstoque($event)"
-                    (blur)="validarEstoque($event)"
-                    [class.is-invalid]="produtoForm.get('estoque')?.invalid && produtoForm.get('estoque')?.touched">
-                  <div class="invalid-feedback">
-                    {{ getErrorMessage('estoque') }}
-                  </div>
-                  <small class="form-text text-muted">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Mínimo: 1 unidade
-                  </small>
-                </div>
+                <!-- CAMPO REMOVIDO: Estoque Inicial - será gerenciado na área de movimentação -->
 
                 <!-- Estoque Mínimo -->
                 <div class="col-12 col-md-6">
@@ -186,7 +167,7 @@
                   <select 
                     class="form-select form-control-custom"
                     formControlName="departamento"
-                    (change)="gerarPreviewCodigo()"
+                    (change)="onDepartamentoChange()"
                     [class.is-invalid]="produtoForm.get('departamento')?.invalid && produtoForm.get('departamento')?.touched">
                     <option value="">Selecione o departamento</option>
                     <option value="01">01 - Alimentação</option>
@@ -348,9 +329,9 @@
                             </button>
                             <button 
                               type="button" 
-                              class="btn btn-outline-success" 
+                              class="btn btn-outline-success"
                               (click)="validarCodigoBarrasManual()"
-                              [disabled]="codigoBarrasGeradoAutomaticamente || !codigoBarrasManual"
+                              [disabled]="!codigoBarrasManual || codigoBarrasManual.length < 3"
                               title="Validar código inserido">
                               <i class="bi bi-check-circle"></i>
                             </button>
@@ -407,8 +388,8 @@
                 </div>
               </div>
 
-              <!-- Sistema de Tamanhos -->
-              <div class="row mt-4">
+              <!-- Sistema de Tamanhos - Apenas para Departamento Roupas -->
+              <div class="row mt-4" *ngIf="isDepartamentoRoupas()">
                 <div class="col-12">
                   <div class="card bg-light tamanhos-card" [class.show]="showTamanhos">
                     <div class="card-header d-flex justify-content-between align-items-center bg-transparent">
@@ -439,7 +420,7 @@
                           <i class="bi bi-info-circle me-2"></i>
                           <strong>Sistema de Tamanhos:</strong> 
                           Ideal para roupas, calçados e produtos com variações de tamanho. 
-                          O estoque será controlado separadamente para cada tamanho.
+                          A quantidade será controlada separadamente para cada tamanho.
                         </div>
 
                       <!-- Seleção de categoria de tamanho -->
@@ -448,7 +429,9 @@
                           <label class="form-label fw-semibold">Categoria de Tamanho</label>
                           <select 
                             class="form-select"
-                            [(ngModel)]="categoriaTamanhoSelecionada">
+                            [(ngModel)]="categoriaTamanhoSelecionada"
+                            [ngModelOptions]="{standalone: true}"
+                            (change)="onCategoriaTamanhoChange()">
                             <option value="">Selecione uma categoria</option>
                             <option value="roupas-gerais">Roupas Gerais (PP, P, M, G, GG, XG)</option>
                             <option value="calcas-numericas">Calças/Saias (Tamanhos Numéricos)</option>
@@ -464,7 +447,7 @@
                             <span 
                               *ngFor="let tamanho of getTamanhosPorCategoria(categoriaTamanhoSelecionada)"
                               class="badge bg-secondary cursor-pointer"
-                              (click)="adicionarTamanhoForm(); tamanhosForm[tamanhosForm.length - 1].tamanho = tamanho"
+                              (click)="adicionarTamanhoPredefinido(tamanho)"
                               title="Clique para adicionar este tamanho">
                               {{ tamanho }}
                             </span>
@@ -482,21 +465,15 @@
                                 Adicionar Tamanho Personalizado
                               </h6>
                               <div class="row g-2">
-                                <div class="col-6">
+                                <div class="col-10">
                                   <input 
                                     type="text" 
                                     class="form-control"
                                     [(ngModel)]="novoTamanho"
+                                    [ngModelOptions]="{standalone: true}"
                                     placeholder="Ex: XXL, 42-44, Único">
                                 </div>
-                                <div class="col-4">
-                                  <input 
-                                    type="number" 
-                                    class="form-control"
-                                    [(ngModel)]="novoTamanhoEstoque"
-                                    placeholder="Estoque inicial"
-                                    min="0">
-                                </div>
+                                <!-- CAMPO REMOVIDO: Quantidade inicial - será gerenciada na área de movimentação -->
                                 <div class="col-2">
                                   <button 
                                     type="button" 
@@ -524,7 +501,6 @@
                               <thead class="bg-primary text-white">
                                 <tr>
                                   <th>Tamanho</th>
-                                  <th>Estoque</th>
                                   <th>Código</th>
                                   <th>Ações</th>
                                 </tr>
@@ -536,16 +512,14 @@
                                       type="text" 
                                       class="form-control form-control-sm"
                                       [(ngModel)]="tamanho.tamanho"
-                                      placeholder="Ex: M, 40, P">
+                                      [ngModelOptions]="{standalone: true}"
+                                      placeholder="Ex: M, 40, P"
+                                      (blur)="formatarTamanho(tamanho)"
+                                      (input)="validarTamanhoPersonalizado(tamanho, $event)"
+                                      (keydown)="onTamanhoKeydown($event, i)"
+                                      #tamanhoInput>
                                   </td>
-                                  <td>
-                                    <input 
-                                      type="number" 
-                                      class="form-control form-control-sm"
-                                      [(ngModel)]="tamanho.estoque"
-                                      placeholder="Ex: 10"
-                                      min="0">
-                                  </td>
+                                  <!-- COLUNA REMOVIDA: Quantidade - será gerenciada na área de movimentação -->
                                   <td>
                                     <input 
                                       type="text" 
@@ -568,25 +542,8 @@
                             </table>
                           </div>
 
-                          <!-- Resumo do estoque total -->
-                          <div class="row mt-3">
-                            <div class="col-12">
-                              <div class="card bg-success text-white">
-                                <div class="card-body p-2">
-                                  <div class="d-flex justify-content-between align-items-center">
-                                    <span class="fw-semibold">
-                                      <i class="bi bi-box-seam me-2"></i>
-                                      Estoque Total de Todos os Tamanhos:
-                                    </span>
-                                    <span class="h5 mb-0">{{ calcularEstoqueTotal() }} unidades</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
                           <!-- Botão para adicionar mais tamanhos -->
-                          <div class="row mt-2">
+                          <div class="row mt-3">
                             <div class="col-12">
                               <button 
                                 type="button" 
@@ -604,13 +561,21 @@
                       <!-- Botão inicial para adicionar primeiro tamanho -->
                       <div class="row" *ngIf="tamanhosForm.length === 0">
                         <div class="col-12 text-center">
+                          <div class="alert alert-info d-flex align-items-center justify-content-center" *ngIf="categoriaTamanhoSelecionada">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <span class="me-3">Clique em um tamanho acima ou use o botão abaixo para começar</span>
+                          </div>
                           <button 
                             type="button" 
-                            class="btn btn-primary"
-                            (click)="adicionarTamanhoForm()">
+                            class="btn btn-primary btn-lg pulse-button"
+                            (click)="adicionarTamanhoForm()"
+                            [disabled]="!categoriaTamanhoSelecionada">
                             <i class="bi bi-plus-circle me-2"></i>
                             Adicionar Primeiro Tamanho
                           </button>
+                          <div class="small text-muted mt-2" *ngIf="!categoriaTamanhoSelecionada">
+                            Selecione uma categoria de tamanho primeiro
+                          </div>
                         </div>
                       </div>
 
@@ -621,6 +586,70 @@
               </div>
 
               <!-- Informação sobre estoque -->
+              
+              <!-- Seção de validação - mostra campos faltantes -->
+              <div class="row" *ngIf="temErros && mostrarValidacao">
+                <div class="col-12">
+                  <div class="alert alert-warning border-0 shadow-sm">
+                    <div class="d-flex align-items-start">
+                      <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>
+                      <div>
+                        <h6 class="mb-2">⚠️ Campos obrigatórios não preenchidos</h6>
+                        <ul class="mb-0 ps-3">
+                          <li *ngFor="let erro of camposFaltantes" class="small">
+                            {{ erro }}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SEÇÃO REMOVIDA: Erro de Validação de Estoque - não mais necessária -->
+
+              <!-- Status do formulário - aparece apenas quando há campos pendentes -->
+              <div class="row" *ngIf="shouldShowFormStatus()">
+                <div class="col-12">
+                  <div class="alert alert-info border-0 shadow-sm">
+                    <div class="d-flex align-items-center">
+                      <i class="bi bi-info-circle me-2"></i>
+                      <small>
+                        📋 Status: 
+                        <span class="badge" [class]="getFormStatusBadgeClass()">
+                          {{ getFormStatusText() }}
+                        </span>
+                        | {{ getFormStatusDetails() }}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Lista detalhada de campos faltantes -->
+              <div class="row" *ngIf="getCamposFaltantes().length > 0">
+                <div class="col-12">
+                  <div class="alert alert-warning border-0 shadow-sm">
+                    <div class="d-flex align-items-start">
+                      <i class="bi bi-list-check me-2 text-warning"></i>
+                      <div>
+                        <h6 class="mb-2">📝 Campos que precisam ser preenchidos:</h6>
+                        <ul class="mb-0 ps-3">
+                          <li *ngFor="let campo of getCamposFaltantes()" class="small mb-1">
+                            <i class="bi bi-arrow-right text-warning me-1"></i>
+                            {{ campo }}
+                          </li>
+                        </ul>
+                        <div class="mt-2 small text-muted">
+                          <i class="bi bi-info-circle me-1"></i>
+                          Complete todos os itens acima para habilitar o botão de cadastrar.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Botões -->
               <div class="d-flex gap-2 justify-content-end mt-4">
                 <button 
@@ -633,7 +662,8 @@
                 <button 
                   type="submit" 
                   class="btn btn-primary btn-custom"
-                  [disabled]="produtoForm.invalid || isLoading">
+                  [disabled]="!formularioValido || isLoading"
+                  [title]="getButtonTooltip()">
                   <div *ngIf="isLoading" class="d-flex align-items-center">
                     <div class="spinner-border spinner-border-sm me-2"></div>
                     <span>Salvando...</span>
@@ -722,12 +752,22 @@
               </div>
 
               <!-- Botão Filtros Avançados -->
-              <div class="col-12">
+              <div class="col-12 col-md-6">
                 <button 
                   class="btn btn-outline-primary btn-sm"
                   (click)="toggleAdvancedFilters()">
                   <i class="bi bi-sliders me-1"></i>
                   {{ showAdvancedFilters ? 'Ocultar' : 'Mostrar' }} Filtros Avançados
+                </button>
+              </div>
+
+              <!-- 🆕 Botão Produtos Desabilitados -->
+              <div class="col-12 col-md-6">
+                <button 
+                  class="btn btn-outline-warning btn-sm"
+                  (click)="toggleProdutosDesabilitados()">
+                  <i class="bi bi-eye-slash me-1"></i>
+                  {{ showDisabledProducts ? 'Ocultar' : 'Mostrar' }} Produtos Desabilitados
                 </button>
               </div>
 
@@ -822,7 +862,6 @@
                     <th>Categoria</th>
                     <th>Tamanhos</th>
                     <th>Preço</th>
-                    <th>Estoque</th>
                     <th>Qtd. Vendida</th>
                     <th>Última Venda</th>
                     <th>Status</th>
@@ -845,15 +884,15 @@
                       </div>
                     </td>
                     <td>
-                      <span class="badge bg-light text-dark">{{ produto.categoria }}</span>
+                      <span class="badge bg-primary text-white">{{ getNomeDepartamento(produto.departamento) }}</span>
                     </td>
                     <td>
-                      <div *ngIf="produto.temTamanhos && produto.tamanhos && produto.tamanhos.length > 0; else semTamanhos">
+                      <div *ngIf="produto.tamanhos && produto.tamanhos.length > 0; else semTamanhos">
                         <div class="d-flex flex-wrap gap-1">
                           <span 
                             *ngFor="let tamanho of produto.tamanhos.slice(0, 3)"
                             class="badge bg-info text-white small"
-                            [title]="'Estoque: ' + tamanho.estoque">
+                            [title]="'Tamanho: ' + tamanho.tamanho">
                             {{ tamanho.tamanho }}
                           </span>
                           <span 
@@ -879,14 +918,6 @@
                       <strong class="text-success">{{ formatarMoeda(produto.preco) }}</strong>
                     </td>
                     <td>
-                      <div>
-                        <strong>{{ produto.quantidade }}</strong>
-                        <small class="d-block text-muted">
-                          Mín: {{ produto.quantidadeMinima }}
-                        </small>
-                      </div>
-                    </td>
-                    <td>
                       <div class="text-center">
                         <strong class="text-primary">{{ getQuantidadeVendida(produto.id!) }}</strong>
                         <small class="d-block text-muted">unidades</small>
@@ -909,13 +940,19 @@
                         </div>
                       </ng-template>
                     </td>
-                    <td>
-                      <span [class]="'badge ' + getStatusBadgeClass(produto)">
-                        {{ getStatusText(produto) }}
-                      </span>
+                    <td class="text-center">
+                      <div class="d-flex align-items-center justify-content-center gap-1">
+                        <i [class]="'me-1 ' + getStatusAtivoIcon(produto)" 
+                           [class.text-success]="produto.ativo" 
+                           [class.text-muted]="!produto.ativo"></i>
+                        <span [class]="'badge badge-sm ' + getStatusAtivoBadgeClass(produto)">
+                          {{ getStatusAtivoText(produto) }}
+                        </span>
+                      </div>
                     </td>
                     <td class="text-center">
-                      <div class="btn-group btn-group-sm">
+                      <!-- Ações principais -->
+                      <div class="btn-group btn-group-sm me-1">
                         <button 
                           class="btn btn-outline-info btn-sm"
                           (click)="visualizarCodigoBarras(produto)"
@@ -929,18 +966,30 @@
                           <i class="bi bi-printer"></i>
                         </button>
                         <button 
-                          class="btn btn-outline-primary btn-sm"
-                          (click)="mostrarModalEditarProduto(produto)"
-                          title="Editar">
-                          <i class="bi bi-pencil"></i>
-                        </button>
-                        <button 
-                          class="btn btn-outline-warning btn-sm"
-                          (click)="desabilitarProduto(produto.id!, produto.nome)"
-                          title="Desabilitar Produto">
-                          <i class="bi bi-eye-slash"></i>
+                          *ngIf="authService.canManageProducts()"
+                          class="btn btn-sm"
+                          [class.btn-success]="showForm && isEditMode && editingProductId === produto.id"
+                          [class.btn-outline-primary]="!(showForm && isEditMode && editingProductId === produto.id)"
+                          (click)="editarProduto(produto)"
+                          [title]="(showForm && isEditMode && editingProductId === produto.id) ? 'Fechar formulário' : 'Editar produto'">
+                          <i class="bi" 
+                             [class.bi-x-circle]="showForm && isEditMode && editingProductId === produto.id"
+                             [class.bi-pencil]="!(showForm && isEditMode && editingProductId === produto.id)"></i>
+                          <span class="d-none d-md-inline ms-1">
+                            {{ (showForm && isEditMode && editingProductId === produto.id) ? 'Fechar' : 'Editar' }}
+                          </span>
                         </button>
                       </div>
+                      
+                      <!-- Ação destrutiva separada -->
+                      <button 
+                        *ngIf="authService.canManageProducts()"
+                        class="btn btn-outline-danger btn-sm"
+                        (click)="desabilitarProduto(produto.id!, produto.nome)"
+                        title="Desabilitar Produto"
+                        [class.disabled]="isLoading">
+                        <i class="bi bi-ban"></i>
+                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -974,6 +1023,74 @@
             </nav>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- 🆕 Seção de Produtos Desabilitados -->
+    <div class="row mt-4" *ngIf="showDisabledProducts">
+      <div class="col-12">
+        <div class="card border-warning">
+          <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+              <i class="bi bi-eye-slash me-2"></i>
+              Produtos Desabilitados
+            </h5>
+            <small class="text-muted">Produtos que foram removidos da listagem mas mantidos no banco de dados</small>
+          </div>
+          <div class="card-body">
+            
+            <!-- Lista de produtos desabilitados -->
+            <div class="table-responsive" *ngIf="produtosDesabilitados.length > 0">
+              <table class="table table-striped table-hover">
+                <thead class="table-warning">
+                  <tr>
+                    <th>Nome</th>
+                    <th>Departamento</th>
+                    <th>Preço</th>
+                    <th>Data Desabilitação</th>
+                    <th class="text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let produto of produtosDesabilitados" class="table-secondary">
+                    <td>
+                      <span class="text-decoration-line-through text-muted">
+                        {{ produto.nome }}
+                      </span>
+                    </td>
+                    <td>
+                                             <span class="badge bg-secondary">{{ getNomeDepartamento(produto.departamento) }}</span>
+                    </td>
+                    <td>
+                      <span class="text-muted">R$ {{ produto.preco | currency:'BRL':'symbol':'1.2-2' }}</span>
+                    </td>
+                    <td>
+                      <span class="text-muted">{{ produto.dataAtualizacao | date:'dd/MM/yyyy' }}</span>
+                    </td>
+                    <td class="text-center">
+                      <button 
+                        class="btn btn-success btn-sm"
+                        (click)="reativarProduto(produto.id!, produto.nome)"
+                        title="Reativar Produto"
+                        [class.disabled]="isLoading">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Reativar
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mensagem quando não há produtos desabilitados -->
+            <div class="text-center py-4" *ngIf="produtosDesabilitados.length === 0">
+              <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+              <h6 class="mt-3 text-success">Nenhum produto desabilitado!</h6>
+              <p class="text-muted">Todos os produtos estão ativos na listagem principal.</p>
+            </div>
+
+          </div>
         </div>
       </div>
     </div>
