@@ -94,13 +94,16 @@ setup.bat
 ### **Desenvolvimento**
 ```bash
 npm run dev:fullstack     # Backend + Frontend simultâneos ⭐
+npm run dev:fullstack:settings2 # Com configurações alternativas
 npm run backend:run       # Apenas backend (porta 8080)
+npm run backend:run:settings2 # Backend com settings2.xml (porta 8081)
 npm start                 # Apenas frontend (porta 4200)
 ```
 
 ### **Testes**
 ```bash
 npm run backend:test      # Testes unitários
+npm run backend:test:settings2 # Testes com settings2.xml
 npm run backend:test-report # Testes + relatório cobertura
 npm run full:test         # Todos os testes
 ```

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+          http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <!-- Configurações específicas para o ambiente alternativo -->
+    <localRepository>${user.home}/.m2/repository-alt</localRepository>
+    
+    <profiles>
+        <profile>
+            <id>settings2-profile</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <!-- Configurações específicas -->
+                <maven.compiler.source>11</maven.compiler.source>
+                <maven.compiler.target>11</maven.compiler.target>
+                <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+                
+                <!-- Configurações de ambiente alternativo -->
+                <spring.profiles.active>settings2</spring.profiles.active>
+                <server.port>8081</server.port>
+                <database.url>jdbc:h2:mem:testdb2</database.url>
+            </properties>
+        </profile>
+    </profiles>
+
+    <servers>
+        <!-- Configurações de servidores específicas -->
+        <server>
+            <id>local-repo</id>
+            <username>admin</username>
+            <password>password123</password>
+        </server>
+    </servers>
+
+    <mirrors>
+        <!-- Espelhos de repositório alternativos -->
+        <mirror>
+            <id>central</id>
+            <mirrorOf>central</mirrorOf>
+            <url>https://repo1.maven.org/maven2</url>
+        </mirror>
+    </mirrors>
+
+</settings>
