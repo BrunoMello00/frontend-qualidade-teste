@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- Exclude test classes -->
+    <Match>
+        <Class name="~.*\..*Test.*"/>
+    </Match>
+
+    <!-- Exclude generated code -->
+    <Match>
+        <Package name="~.*\.generated\..*"/>
+    </Match>
+
+    <!-- Exclude DTO classes from certain checks -->
+    <Match>
+        <Class name="~.*\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Exclude config classes from certain checks -->
+    <Match>
+        <Class name="~.*\.config\..*"/>
+        <Bug pattern="URF_UNREAD_FIELD"/>
+    </Match>
+
+    <!-- Exclude Spring Application class -->
+    <Match>
+        <Class name="~.*Application"/>
+    </Match>
+
+</FindBugsFilter>

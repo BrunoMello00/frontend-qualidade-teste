@@ -198,6 +198,7 @@ public class MovimentacaoEstoqueService {
     /**
      * Busca movimentações por período
      */
+    @Transactional(readOnly = true)
     public List<MovimentacaoEstoqueDTO.MovimentacaoResponse> buscarMovimentacoesPorPeriodo(
             LocalDate dataInicio, LocalDate dataFim) {
         

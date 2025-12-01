@@ -260,6 +260,10 @@ replay_pid*
 # JaCoCo coverage reports
 backend-java/target/site/jacoco/
 
+# Documentation folders - excluded from remote repository
+DOCs/
+RELATORIO_COMPLETO_ENTREGA2/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

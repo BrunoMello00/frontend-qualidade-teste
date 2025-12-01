@@ -499,7 +499,7 @@ public class ProdutoService {
                 .estoqueBaixo(produto.isEstoqueBaixo())
                 .bloqueado(lockInfo != null)
                 .bloqueadoPorUsuario(lockInfo != null ? (String) lockInfo.get("usuario_nome") : null)
-                .bloqueioExpiraEm(lockInfo != null ? 
+                .bloqueioExpiraEm((lockInfo != null && lockInfo.get("data_expiracao") != null) ? 
                     ((java.sql.Timestamp) lockInfo.get("data_expiracao")).toLocalDateTime() : null)
                 .codigoValido(produto.isCodigoValido())
                 .padraoBrasileiro(produto.isPadraoBrasileiro())
