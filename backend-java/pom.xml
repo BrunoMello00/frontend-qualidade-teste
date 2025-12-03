@@ -25,8 +25,8 @@
         <!-- SonarQube properties -->
         <sonar.projectKey>estoque-vendas-backend</sonar.projectKey>
         <sonar.projectName>Sistema de Gerenciamento de Estoque e Vendas</sonar.projectName>
-        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.organization>brunomello00</sonar.organization>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <!-- sonar.organization>brunomello00</sonar.organization -->
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
         <sonar.jacoco.reportPath>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPath>
