@@ -1,6 +1,7 @@
 package com.tcc.estoque.service;
 
 import com.tcc.estoque.dto.VendaDTO;
+import com.tcc.estoque.dto.EventoDTO;
 import com.tcc.estoque.model.*;
 import com.tcc.estoque.model.enums.FormaPagamento;
 import com.tcc.estoque.model.enums.StatusVenda;
@@ -399,6 +400,452 @@ class VendaServiceTest {
         when(vendaRepository.findById(555L)).thenReturn(Optional.of(venda));
 
         assertThrows(RuntimeException.class, () -> vendaService.confirmarVenda(555L, new Usuario()));
+    }
+
+    @Test
+    void criarVendaComDescontoPersonalizado() {
+        VendaDTO.ItemVendaRequest item = new VendaDTO.ItemVendaRequest();
+        item.setProdutoId(501L);
+        item.setQuantidade(2);
+        item.setPrecoUnitario(BigDecimal.valueOf(50));
+
+        VendaDTO.VendaRequest req = new VendaDTO.VendaRequest();
+        req.setItens(List.of(item));
+        req.setFormaPagamento(FormaPagamento.BOLETO); // Muda para BOLETO para ficar PENDENTE
+        req.setNomeCliente("Cliente Desconto");
+        req.setDesconto(BigDecimal.valueOf(10)); // Desconto personalizado
+        req.setObservacoes("Venda com desconto especial");
+
+        when(produtoRepository.existsById(501L)).thenReturn(true);
+        
+        Produto produto = new Produto();
+        produto.setId(501L);
+        produto.setNome("Produto Teste");
+        produto.setEstoque(100);
+        produto.setTamanhos(Collections.emptyList());
+        when(produtoRepository.findById(501L)).thenReturn(Optional.of(produto));
+
+        when(vendaRepository.save(any())).thenAnswer(inv -> {
+            Venda v = inv.getArgument(0);
+            v.setId(1001L);
+            return v;
+        });
+
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor Teste");
+        
+        Venda vendaReload = new Venda();
+        vendaReload.setId(1001L);
+        vendaReload.setItens(Collections.emptyList());
+        vendaReload.setUsuario(vendedor);
+        vendaReload.setStatus(StatusVenda.PENDENTE);
+        vendaReload.setDesconto(BigDecimal.valueOf(10));
+        vendaReload.setValorTotal(BigDecimal.valueOf(90));
+        when(vendaRepository.findByIdWithItens(1001L)).thenReturn(Optional.of(vendaReload));
+
+        VendaDTO.VendaResponse response = vendaService.criarVenda(req, vendedor);
+
+        assertThat(response.getStatus()).isEqualTo(StatusVenda.PENDENTE);
+        assertThat(response.getDesconto()).isEqualByComparingTo(BigDecimal.valueOf(10));
+        assertThat(response.getValorTotal()).isEqualByComparingTo(BigDecimal.valueOf(90)); // 100 - 10
+    }
+
+    @Test
+    void criarVendaComDataCustomizada() {
+        LocalDateTime dataCustomizada = LocalDateTime.of(2024, 12, 1, 10, 0);
+        
+        VendaDTO.ItemVendaRequest item = new VendaDTO.ItemVendaRequest();
+        item.setProdutoId(502L);
+        item.setQuantidade(1);
+        item.setPrecoUnitario(BigDecimal.valueOf(100));
+
+        VendaDTO.VendaRequest req = new VendaDTO.VendaRequest();
+        req.setItens(List.of(item));
+        req.setFormaPagamento(FormaPagamento.TRANSFERENCIA);
+        req.setNomeCliente("Cliente Data");
+        req.setDataVenda(dataCustomizada);
+
+        when(produtoRepository.existsById(502L)).thenReturn(true);
+        
+        Produto produto = new Produto();
+        produto.setId(502L);
+        produto.setNome("Produto Data");
+        produto.setEstoque(50);
+        produto.setTamanhos(Collections.emptyList());
+        when(produtoRepository.findById(502L)).thenReturn(Optional.of(produto));
+
+        when(vendaRepository.save(any())).thenAnswer(inv -> {
+            Venda v = inv.getArgument(0);
+            v.setId(1002L);
+            return v;
+        });
+
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor");
+        
+        Venda vendaReload = new Venda();
+        vendaReload.setId(1002L);
+        vendaReload.setItens(Collections.emptyList());
+        vendaReload.setUsuario(vendedor);
+        vendaReload.setStatus(StatusVenda.PENDENTE);
+        vendaReload.setDataVenda(dataCustomizada);
+        when(vendaRepository.findByIdWithItens(1002L)).thenReturn(Optional.of(vendaReload));
+
+        VendaDTO.VendaResponse response = vendaService.criarVenda(req, vendedor);
+
+        assertThat(response.getStatus()).isEqualTo(StatusVenda.PENDENTE);
+        assertThat(response.getDataVenda()).isEqualTo(dataCustomizada);
+    }
+
+    @Test
+    void obterEstatisticasVendasComDatasNull() {
+        // Testar com datas null - devem usar defaults
+        when(vendaRepository.countVendasPorPeriodo(any(), any())).thenReturn(10L);
+        when(vendaRepository.sumFaturamentoPorPeriodo(any(), any())).thenReturn(BigDecimal.valueOf(1000));
+        when(vendaRepository.countByStatusAndDataVendaBetween(eq(StatusVenda.PENDENTE), any(), any())).thenReturn(2L);
+        when(vendaRepository.countByStatusAndDataVendaBetween(eq(StatusVenda.CONFIRMADA), any(), any())).thenReturn(7L);
+        when(vendaRepository.countByStatusAndDataVendaBetween(eq(StatusVenda.CANCELADA), any(), any())).thenReturn(1L);
+
+        VendaDTO.EstatisticasVendasResponse stats = vendaService.obterEstatisticasVendas(null, null);
+
+        assertThat(stats.getTotalVendas()).isEqualTo(10L);
+        assertThat(stats.getTotalFaturamento()).isEqualByComparingTo(BigDecimal.valueOf(1000));
+        assertThat(stats.getTicketMedio()).isEqualByComparingTo(BigDecimal.valueOf(100)); // 1000/10
+        assertThat(stats.getVendasPendentes()).isEqualTo(2L);
+        assertThat(stats.getVendasConfirmadas()).isEqualTo(7L);
+        assertThat(stats.getVendasCanceladas()).isEqualTo(1L);
+    }
+
+    @Test
+    void obterTopProdutosPorReceita() {
+        LocalDate inicio = LocalDate.now().minusDays(30);
+        LocalDate fim = LocalDate.now();
+
+        // Mock dos resultados da query
+        Object[] produto1 = {1L, "Produto A", "Categoria A", 10L, BigDecimal.valueOf(500), BigDecimal.valueOf(50)};
+        Object[] produto2 = {2L, "Produto B", "Categoria B", 5L, BigDecimal.valueOf(250), BigDecimal.valueOf(50)};
+        
+        when(vendaRepository.findTopProdutosPorReceita(any(), any(), eq(StatusVenda.CONFIRMADA), any()))
+                .thenReturn(List.of(produto1, produto2));
+        when(vendaRepository.sumTotalProdutosVendidos(any(), any(), eq(StatusVenda.CONFIRMADA)))
+                .thenReturn(15L);
+
+        List<VendaDTO.TopProdutoResponse> topProdutos = vendaService.obterTopProdutos(inicio, fim, "receita", 5);
+
+        assertThat(topProdutos).hasSize(2);
+        assertThat(topProdutos.get(0).getRanking()).isEqualTo(1);
+        assertThat(topProdutos.get(0).getReceitaTotal()).isEqualByComparingTo(BigDecimal.valueOf(500));
+        assertThat(topProdutos.get(1).getRanking()).isEqualTo(2);
+    }
+
+    @Test
+    void obterTopProdutosMaisVendidos() {
+        LocalDate inicio = LocalDate.now().minusDays(30);
+        LocalDate fim = LocalDate.now();
+
+        Object[] produto1 = {1L, "Produto A", null, 15L, BigDecimal.valueOf(750), null};
+        List<Object[]> resultados = new java.util.ArrayList<>();
+        resultados.add(produto1);
+        
+        when(vendaRepository.findTopProdutosMaisVendidos(any(), any(), eq(StatusVenda.CONFIRMADA), any()))
+                .thenReturn(resultados);
+        when(vendaRepository.sumTotalProdutosVendidos(any(), any(), eq(StatusVenda.CONFIRMADA)))
+                .thenReturn(20L);
+
+        List<VendaDTO.TopProdutoResponse> topProdutos = vendaService.obterTopProdutos(inicio, fim, "quantidade", null);
+
+        assertThat(topProdutos).hasSize(1);
+        assertThat(topProdutos.get(0).getQuantidadeVendida()).isEqualTo(15);
+        assertThat(topProdutos.get(0).getCategoriaProduto()).isEqualTo("Sem departamento");
+        assertThat(topProdutos.get(0).getPrecoUnitario()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void listarVendasComFiltros() {
+        // Testando o método listarVendas com filtros
+        StatusVenda status = StatusVenda.CONFIRMADA;
+        LocalDate dataInicio = LocalDate.now().minusDays(7);
+        LocalDate dataFim = LocalDate.now();
+        String nomeCliente = "João";
+
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor Teste");
+
+        Venda venda = new Venda();
+        venda.setId(100L);
+        venda.setClienteNome("João Silva");
+        venda.setStatus(StatusVenda.CONFIRMADA);
+        venda.setSubtotal(BigDecimal.valueOf(200));
+        venda.setDesconto(BigDecimal.valueOf(20));
+        venda.setValorTotal(BigDecimal.valueOf(180));
+        venda.setUsuario(vendedor);
+        venda.setItens(Collections.emptyList());
+
+        when(vendaRepository.findVendasComFiltros(
+                eq(status), any(LocalDateTime.class), any(LocalDateTime.class), 
+                eq(nomeCliente), any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(venda)));
+
+        org.springframework.data.domain.Page<VendaDTO.VendaResponse> resultado = 
+                vendaService.listarVendas(status, dataInicio, dataFim, nomeCliente, Pageable.unpaged());
+
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).getNomeCliente()).isEqualTo("João Silva");
+    }
+
+    @Test
+    void listarVendasSemFiltros() {
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor");
+
+        Venda venda = new Venda();
+        venda.setId(101L);
+        venda.setClienteNome("Cliente Teste");
+        venda.setUsuario(vendedor);
+        venda.setItens(Collections.emptyList());
+
+        when(vendaRepository.findAllByOrderByDataVendaDesc(any(Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(venda)));
+
+        org.springframework.data.domain.Page<VendaDTO.VendaResponse> resultado = 
+                vendaService.listarVendas(null, null, null, null, Pageable.unpaged());
+
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).getId()).isEqualTo(101L);
+    }
+
+    @Test
+    void buscarVendaPorIdExistente() {
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor");
+        vendedor.setEmail("vendedor@teste.com");
+
+        ItemVenda item = new ItemVenda();
+        item.setId(1L);
+        item.setQuantidade(2);
+        item.setPrecoUnitario(BigDecimal.valueOf(25));
+        item.setSubtotal(BigDecimal.valueOf(50));
+        
+        Produto produto = new Produto();
+        produto.setId(1L);
+        produto.setNome("Produto Teste");
+        produto.setCodigo("PROD001");
+        item.setProduto(produto);
+
+        Venda venda = new Venda();
+        venda.setId(102L);
+        venda.setClienteNome("Cliente Busca");
+        venda.setClienteEmail("cliente@teste.com");
+        venda.setClienteTelefone("11999999999");
+        venda.setStatus(StatusVenda.CONFIRMADA);
+        venda.setDataVenda(LocalDateTime.now());
+        venda.setDataConfirmacao(LocalDateTime.now());
+        venda.setSubtotal(BigDecimal.valueOf(50));
+        venda.setDesconto(BigDecimal.valueOf(5));
+        venda.setValorTotal(BigDecimal.valueOf(45));
+        venda.setObservacoes("Observação teste");
+        venda.setUsuario(vendedor);
+        venda.setItens(List.of(item));
+
+        when(vendaRepository.findById(102L)).thenReturn(Optional.of(venda));
+
+        Optional<VendaDTO.VendaResponse> resultado = vendaService.buscarVendaPorId(102L);
+
+        assertThat(resultado).isPresent();
+        VendaDTO.VendaResponse response = resultado.get();
+        assertThat(response.getId()).isEqualTo(102L);
+        assertThat(response.getNomeCliente()).isEqualTo("Cliente Busca");
+        assertThat(response.getEmailVendedor()).isEqualTo("vendedor@teste.com");
+        assertThat(response.getItens()).hasSize(1);
+    }
+
+    @Test
+    void criarVendaComTelefoneEValidacaoCompleta() {
+        VendaDTO.ItemVendaRequest item = new VendaDTO.ItemVendaRequest();
+        item.setProdutoId(503L);
+        item.setQuantidade(3);
+        item.setPrecoUnitario(BigDecimal.valueOf(33.33));
+        item.setDescontoItem(BigDecimal.valueOf(3.33)); // Teste desconto por item
+        item.setTamanho("M"); // Teste tamanho
+
+        VendaDTO.VendaRequest req = new VendaDTO.VendaRequest();
+        req.setItens(List.of(item));
+        req.setFormaPagamento(FormaPagamento.BOLETO); // Muda para BOLETO para ficar PENDENTE
+        req.setNomeCliente("Cliente Completo");
+        req.setTelefoneCliente("11987654321");
+        req.setEmailCliente("completo@teste.com");
+
+        when(produtoRepository.existsById(503L)).thenReturn(true);
+        
+        Produto produto = new Produto();
+        produto.setId(503L);
+        produto.setNome("Produto Completo");
+        produto.setEstoque(100);
+        produto.setTamanhos(Collections.emptyList());
+        when(produtoRepository.findById(503L)).thenReturn(Optional.of(produto));
+
+        when(vendaRepository.save(any())).thenAnswer(inv -> {
+            Venda v = inv.getArgument(0);
+            v.setId(1003L);
+            return v;
+        });
+
+        Usuario vendedor = new Usuario();
+        vendedor.setNome("Vendedor Completo");
+        
+        Venda vendaReload = new Venda();
+        vendaReload.setId(1003L);
+        vendaReload.setItens(Collections.emptyList());
+        vendaReload.setUsuario(vendedor);
+        vendaReload.setStatus(StatusVenda.PENDENTE);
+        vendaReload.setClienteEmail("completo@teste.com");
+        when(vendaRepository.findByIdWithItens(1003L)).thenReturn(Optional.of(vendaReload));
+
+        // Mock cliente para processamento de pontuação
+        Cliente cliente = new Cliente();
+        cliente.setId(50L);
+        cliente.setPontos(0);
+        cliente.setEmail("completo@teste.com");
+        when(clienteRepository.findByEmail("completo@teste.com")).thenReturn(Optional.of(cliente));
+
+        VendaDTO.VendaResponse response = vendaService.criarVenda(req, vendedor);
+
+        assertThat(response.getStatus()).isEqualTo(StatusVenda.PENDENTE);
+        verify(itemVendaRepository, atLeastOnce()).save(any()); // Verificar criação de itens
+    }
+
+    @Test
+    void buscarPontosCliente() {
+        // Arrange
+        Long clienteId = 1L;
+        Cliente cliente = new Cliente();
+        cliente.setId(clienteId);
+        cliente.setNome("Cliente Teste");
+        cliente.setEmail("cliente@teste.com");
+        cliente.setPontos(100);
+
+        Recompensa recompensa = new Recompensa();
+        recompensa.setId(1L);
+        recompensa.setNome("Desconto 10%");
+        recompensa.setDescricao("Desconto de 10% na compra");
+        recompensa.setPontosNecessarios(50);
+        recompensa.setPercentualDesconto(new BigDecimal("10.00"));
+        recompensa.setCategoria("BRONZE");
+
+        when(clienteRepository.findById(clienteId)).thenReturn(Optional.of(cliente));
+        when(recompensaRepository.findByAtivoTrueOrderByPontosNecessariosAsc())
+                .thenReturn(List.of(recompensa));
+
+        // Act
+        VendaDTO.ClientePontosResponse response = vendaService.buscarPontosCliente(clienteId);
+
+        // Assert
+        assertThat(response.getClienteId()).isEqualTo(clienteId);
+        assertThat(response.getNomeCliente()).isEqualTo("Cliente Teste");
+        assertThat(response.getEmailCliente()).isEqualTo("cliente@teste.com");
+        assertThat(response.getPontosDisponiveis()).isEqualTo(100);
+        assertThat(response.getRecompensasDisponiveis()).hasSize(1);
+        verify(clienteRepository).findById(clienteId);
+        verify(recompensaRepository).findByAtivoTrueOrderByPontosNecessariosAsc();
+    }
+
+    @Test 
+    void aplicarDescontoEventoComEventoComDesconto() throws Exception {
+        // Testar o método privado aplicarDescontoEvento usando reflection
+        
+        // Arrange
+        EventoDTO.EventoResumo eventoMock = mock(EventoDTO.EventoResumo.class);
+        when(eventoMock.getDescontoPercentual()).thenReturn(new BigDecimal("10.00"));
+        when(eventoService.buscarEventosComDesconto()).thenReturn(List.of(eventoMock));
+
+        BigDecimal subtotal = new BigDecimal("100.00");
+        
+        // Use reflection para acessar método privado
+        java.lang.reflect.Method metodoPrivado = VendaService.class.getDeclaredMethod("aplicarDescontoEvento", BigDecimal.class);
+        metodoPrivado.setAccessible(true);
+
+        // Act
+        BigDecimal desconto = (BigDecimal) metodoPrivado.invoke(vendaService, subtotal);
+
+        // Assert
+        assertThat(desconto.compareTo(new BigDecimal("10.00"))).isEqualTo(0); // 10% de R$ 100,00 = R$ 10,00
+        verify(eventoService).buscarEventosComDesconto();
+    }
+
+    @Test 
+    void aplicarDescontoEventoSemEvento() throws Exception {
+        // Testar o método privado aplicarDescontoEvento quando não há eventos
+        
+        // Arrange
+        when(eventoService.buscarEventosComDesconto()).thenReturn(Collections.emptyList());
+        BigDecimal subtotal = new BigDecimal("100.00");
+        
+        // Use reflection para acessar método privado
+        java.lang.reflect.Method metodoPrivado = VendaService.class.getDeclaredMethod("aplicarDescontoEvento", BigDecimal.class);
+        metodoPrivado.setAccessible(true);
+
+        // Act
+        BigDecimal desconto = (BigDecimal) metodoPrivado.invoke(vendaService, subtotal);
+
+        // Assert
+        assertThat(desconto).isEqualTo(BigDecimal.ZERO); // Sem eventos = sem desconto
+        verify(eventoService).buscarEventosComDesconto();
+    }
+
+    @Test
+    void criarVendaComPagamentoInstantaneoBaixaEstoqueDirecto() {
+        // Este teste força a execução do método baixarEstoqueDirecto através de criarVenda com PIX
+        
+        // Arrange
+        VendaDTO.ItemVendaRequest item = new VendaDTO.ItemVendaRequest();
+        item.setProdutoId(201L);
+        item.setQuantidade(2);
+        item.setPrecoUnitario(new BigDecimal("50.00"));
+
+        VendaDTO.VendaRequest request = new VendaDTO.VendaRequest();
+        request.setItens(List.of(item));
+        request.setFormaPagamento(FormaPagamento.PIX); // Pagamento instantâneo que baixa estoque direto
+        request.setNomeCliente("Cliente PIX");
+
+        // Mock produto com estoque suficiente
+        Produto produto = new Produto();
+        produto.setId(201L);
+        produto.setNome("Produto PIX");
+        produto.setPreco(new BigDecimal("50.00"));
+        produto.setEstoque(10); // Estoque inicial
+        produto.setTamanhos(Collections.emptyList());
+
+        Usuario usuario = new Usuario();
+        usuario.setNome("Vendedor PIX");
+
+        when(produtoRepository.existsById(201L)).thenReturn(true);
+        when(produtoRepository.findById(201L)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
+        when(vendaRepository.save(any())).thenAnswer(inv -> {
+            Venda v = inv.getArgument(0);
+            v.setId(2001L);
+            return v;
+        });
+
+        // Mock para buscar venda após criação
+        Venda vendaRetornada = new Venda();
+        vendaRetornada.setId(2001L);
+        vendaRetornada.setStatus(StatusVenda.CONFIRMADA);
+        vendaRetornada.setItens(Collections.emptyList());
+        vendaRetornada.setUsuario(usuario); // Definir o usuário
+        when(vendaRepository.findByIdWithItens(2001L)).thenReturn(Optional.of(vendaRetornada));
+
+        // Act
+        VendaDTO.VendaResponse response = vendaService.criarVenda(request, usuario);
+
+        // Assert
+        assertThat(response.getId()).isEqualTo(2001L);
+        assertThat(response.getStatus()).isEqualTo(StatusVenda.CONFIRMADA); // PIX = confirmada automaticamente
+        
+        // Verificar que o produto foi salvo (baixa de estoque)
+        verify(produtoRepository, atLeastOnce()).save(any(Produto.class));
+        // Verificar que a movimentação de estoque foi registrada
+        verify(movimentacaoEstoqueRepository, atLeastOnce()).save(any(MovimentacaoEstoque.class));
     }
 }
 

@@ -309,11 +309,14 @@
             <plugin>
                 <groupId>org.pitest</groupId>
                 <artifactId>pitest-maven</artifactId>
-                <version>1.9.11</version>
-                <!-- No extra plugin dependencies: rely on default test framework discovery. For Jupiter-only projects
-                     we might need to add a junit5 plugin whose version matches the pitest core. Avoiding adding it
-                     here prevents AbstractMethodError when versions mismatch; we prefer using explicit JUnit4 adapter
-                     tests for mutation runs in this environment. -->
+                <version>1.15.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-junit5-plugin</artifactId>
+                        <version>1.2.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                     <targetClasses>
                         <param>com.tcc.*</param>
@@ -321,10 +324,17 @@
                     <targetTests>
                         <param>com.tcc.*</param>
                     </targetTests>
-                    <!-- Not setting testPlugin to avoid plugin-version incompatibilities in the CI environment -->
-                    <mutators>DEFAULTS</mutators>
-                    <!-- Temporarily set to 0 during iterative test development. Restore to 80 before final delivery. -->
-                    <coverageThreshold>0</coverageThreshold>
+                    <outputFormats>
+                        <outputFormat>HTML</outputFormat>
+                        <outputFormat>XML</outputFormat>
+                    </outputFormats>
+                    <mutators>
+                        <mutator>DEFAULTS</mutator>
+                        <mutator>STRONGER</mutator>
+                    </mutators>
+                    <coverageThreshold>70</coverageThreshold>
+                    <mutationThreshold>80</mutationThreshold>
+                    <timestampedReports>false</timestampedReports>
                 </configuration>
             </plugin>
             
@@ -335,17 +345,23 @@
                 <version>3.9.1.2184</version>
             </plugin>
             
-            <!-- SpotBugs plugin for static analysis -->
+            <!-- SpotBugs plugin para análise estática -->
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
                 <version>4.7.3.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.h3xstream.findsecbugs</groupId>
+                        <artifactId>findsecbugs-plugin</artifactId>
+                        <version>1.12.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                     <effort>Max</effort>
                     <threshold>Low</threshold>
                     <xmlOutput>true</xmlOutput>
-                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
-                    <includeTests>false</includeTests>
+                    <includeFilterFile>spotbugs-exclude.xml</includeFilterFile>
                     <plugins>
                         <plugin>
                             <groupId>com.h3xstream.findsecbugs</groupId>
@@ -354,13 +370,6 @@
                         </plugin>
                     </plugins>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

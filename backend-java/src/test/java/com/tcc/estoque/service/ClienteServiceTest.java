@@ -20,10 +20,17 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import org.mockito.ArgumentCaptor;
 import java.util.ArrayList;
 import com.tcc.estoque.model.HistoricoPontos;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class ClienteServiceTest {
@@ -266,7 +273,6 @@ class ClienteServiceTest {
 
     @Test
     void buscarPorEmailQuandoNaoExiste() {
-
         ClienteDTO.ClienteRequest req = new ClienteDTO.ClienteRequest();
         req.setNome("X");
         req.setCpf("111.111.111-11");
@@ -278,6 +284,207 @@ class ClienteServiceTest {
         assertThrows(com.tcc.estoque.exception.BusinessException.class, () -> clienteService.criarCliente(req));
 
         verify(clienteRepository).existsByEmail("existe@exemplo.com");
+    }
+
+    @Test
+    void criarClienteComCpfJaExistente() {
+        ClienteDTO.ClienteRequest req = new ClienteDTO.ClienteRequest();
+        req.setNome("Duplicado");
+        req.setCpf("123.456.789-00");
+        req.setEmail("novo@exemplo.com");
+
+        when(clienteRepository.existsByCpf("123.456.789-00")).thenReturn(true);
+
+        assertThrows(com.tcc.estoque.exception.BusinessException.class, () -> clienteService.criarCliente(req));
+    }
+
+    @Test
+    void buscarPorCpfComSucesso() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1L);
+        cliente.setNome("Teste CPF");
+        cliente.setCpf("123.456.789-00");
+
+        when(clienteRepository.findByCpf("123.456.789-00")).thenReturn(Optional.of(cliente));
+
+        ClienteDTO.ClienteResponse resp = clienteService.buscarPorCpf("123.456.789-00");
+
+        assertThat(resp.getId()).isEqualTo(1L);
+        assertThat(resp.getNome()).isEqualTo("Teste CPF");
+        assertThat(resp.getCpf()).isEqualTo("123.456.789-00");
+    }
+
+    @Test
+    void atualizarClienteNaoEncontrado() {
+        when(clienteRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ClienteDTO.ClienteRequest req = new ClienteDTO.ClienteRequest();
+        req.setNome("Nome Teste");
+
+        assertThrows(NotFoundException.class, () -> clienteService.atualizarCliente(999L, req));
+    }
+
+    @Test
+    void calcularCategoriaClienteBronze() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1L);
+        cliente.setPontos(50); // Menos de 100 pontos = BRONZE
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteDTO.PontosRequest req = new ClienteDTO.PontosRequest();
+        req.setPontos(30);
+        req.setMotivo("teste_categoria");
+
+        clienteService.adicionarPontos(1L, req);
+
+        assertThat(cliente.getPontos()).isEqualTo(80);
+        verify(historicoPontosRepository).save(any(HistoricoPontos.class));
+    }
+
+    @Test
+    void removerTodosPontos() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1L);
+        cliente.setPontos(20);
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteDTO.PontosRequest req = new ClienteDTO.PontosRequest();
+        req.setPontos(30); // Mais que os pontos disponíveis
+        req.setMotivo("remover_todos");
+
+        clienteService.removerPontos(1L, req);
+
+        assertThat(cliente.getPontos()).isZero(); // Não deve ficar negativo
+    }
+
+    @Test
+    void atualizarClienteComSucesso() {
+        Cliente clienteExistente = new Cliente();
+        clienteExistente.setId(1L);
+        clienteExistente.setNome("Nome Antigo");
+        clienteExistente.setEmail("antigo@exemplo.com");
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(clienteExistente));
+        when(clienteRepository.existsByCpfAndIdNot(anyString(), eq(1L))).thenReturn(false);
+        when(clienteRepository.existsByEmailAndIdNot(anyString(), eq(1L))).thenReturn(false);
+        when(clienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteDTO.ClienteRequest req = new ClienteDTO.ClienteRequest();
+        req.setNome("Nome Novo");
+        req.setEmail("novo@exemplo.com");
+        req.setCpf("111.222.333-44");
+
+        ClienteDTO.ClienteResponse resp = clienteService.atualizarCliente(1L, req);
+
+        assertThat(resp.getNome()).isEqualTo("Nome Novo");
+        assertThat(resp.getEmail()).isEqualTo("novo@exemplo.com");
+        verify(clienteRepository).save(clienteExistente);
+    }
+
+    @Test
+    void buscarPorIdComSucesso() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1L);
+        cliente.setNome("Cliente Teste");
+
+        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
+
+        ClienteDTO.ClienteResponse resp = clienteService.buscarPorId(1L);
+
+        assertThat(resp.getId()).isEqualTo(1L);
+        assertThat(resp.getNome()).isEqualTo("Cliente Teste");
+    }
+
+    @Test
+    void buscarPorIdQuandoNaoExiste() {
+        when(clienteRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(NotFoundException.class, () -> clienteService.buscarPorId(999L));
+    }
+
+    @Test
+    void buscarPorTermo() {
+        Cliente c1 = new Cliente(); c1.setId(1L); c1.setNome("João Silva");
+        
+        Page<Cliente> page = new PageImpl<>(List.of(c1));
+        when(clienteRepository.findByTermoGeral(eq("João"), any(PageRequest.class))).thenReturn(page);
+
+        List<ClienteDTO.ClienteResumo> resultado = clienteService.buscarPorTermo("João");
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).getNome()).isEqualTo("João Silva");
+    }
+
+    @Test
+    void buscarHistoricoPontos() {
+        HistoricoPontos h1 = new HistoricoPontos();
+        h1.setId(1L);
+        h1.setPontosAdicionados(10);
+        h1.setMotivo("compra");
+
+        when(historicoPontosRepository.findByClienteIdOrderByDataOperacaoDesc(1L)).thenReturn(List.of(h1));
+
+        List<ClienteDTO.HistoricoPontosResponse> resultado = clienteService.buscarHistoricoPontos(1L);
+
+        assertThat(resultado).hasSize(1);
+        verify(historicoPontosRepository).findByClienteIdOrderByDataOperacaoDesc(1L);
+    }
+
+    @Test
+    void listarClientesComFiltros() {
+        Cliente c1 = new Cliente(); 
+        c1.setId(1L); 
+        c1.setNome("Cliente Ativo"); 
+        c1.setAtivo(true);
+        
+        org.springframework.data.domain.Page<Cliente> page = 
+            new org.springframework.data.domain.PageImpl<>(List.of(c1));
+        
+        when(clienteRepository.findComFiltros(
+                anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+
+        ClienteDTO.FiltroClientes filtro = new ClienteDTO.FiltroClientes();
+        filtro.setTermo("Cliente");
+        filtro.setAtivo(true);
+        
+        org.springframework.data.domain.Pageable pageable = 
+            org.springframework.data.domain.PageRequest.of(0, 10);
+
+        org.springframework.data.domain.Page<ClienteDTO.ClienteResumo> resultado = 
+            clienteService.listarClientes(filtro, pageable);
+
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).getNome()).isEqualTo("Cliente Ativo");
+    }
+
+    @Test
+    void listarClientesSemFiltros() {
+        Cliente c1 = new Cliente(); 
+        c1.setId(1L); 
+        c1.setNome("Cliente Qualquer");
+        
+        org.springframework.data.domain.Page<Cliente> page = 
+            new org.springframework.data.domain.PageImpl<>(List.of(c1));
+        
+        when(clienteRepository.findComFiltros(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+
+        ClienteDTO.FiltroClientes filtro = new ClienteDTO.FiltroClientes();
+        org.springframework.data.domain.Pageable pageable = 
+            org.springframework.data.domain.PageRequest.of(0, 10);
+
+        org.springframework.data.domain.Page<ClienteDTO.ClienteResumo> resultado = 
+            clienteService.listarClientes(filtro, pageable);
+
+        assertThat(resultado.getContent()).hasSize(1);
+        verify(clienteRepository).findComFiltros(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
     }
 }
 

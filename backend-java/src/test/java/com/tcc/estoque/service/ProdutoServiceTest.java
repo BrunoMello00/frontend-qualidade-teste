@@ -517,6 +517,454 @@ class ProdutoServiceTest {
     assertThat(resp.getTamanhos()).hasSize(2);
     assertThat(resp.getQuantidadeEstoque()).isEqualTo(Integer.valueOf(5));
     }
+
+    @Test
+    void buscarProdutoNaoEncontrado() {
+        lenient().when(produtoRepository.findById(9999L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> produtoService.buscarPorId(9999L));
+    }
+
+    @Test
+    void buscarPorCodigoBarrasNaoEncontrado() {
+        lenient().when(produtoRepository.findByCodigo("INEXISTENTE")).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> produtoService.buscarPorCodigoBarras("INEXISTENTE"));
+    }
+
+    @Test
+    void criarProdutoComCodigoJaExistente() {
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Duplicado")
+                .codigoBarras("EXIST123")
+                .build();
+
+        lenient().when(produtoRepository.existsByCodigo("EXIST123")).thenReturn(true);
+
+        assertThrows(RuntimeException.class, () -> produtoService.criarProduto(req));
+    }
+
+    @Test
+    void atualizarEstoqueProdutoInexistente() {
+        lenient().when(produtoRepository.findById(8888L)).thenReturn(Optional.empty());
+
+        ProdutoDTO.EstoqueRequest req = ProdutoDTO.EstoqueRequest.builder().quantidade(10).build();
+
+        assertThrows(RuntimeException.class, () -> produtoService.atualizarEstoque(8888L, req));
+    }
+
+    @Test
+    void excluirProdutoInexistente() {
+        lenient().when(produtoRepository.findById(7777L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> produtoService.excluirProduto(7777L));
+    }
+
+    @Test
+    void criarProdutoComDepartamentoEDescricao() {
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Completo")
+                .descricao("Descrição detalhada do produto")
+                .departamento("Eletrônicos")
+                .preco(BigDecimal.valueOf(199.99))
+                .estoqueMinimo(5)
+                .pontuacaoProduto(15)
+                .build();
+
+        when(codigoBarrasService.gerarProximoCodigo(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn("AUTO001");
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R002");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(5L);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(501L);
+            return p;
+        });
+
+        Produto produtoCompleto = Produto.builder()
+                .id(501L)
+                .nome("Produto Completo")
+                .descricao("Descrição detalhada do produto")
+                .departamento("Eletrônicos")
+                .codigo("AUTO001")
+                .preco(BigDecimal.valueOf(199.99))
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+
+
+
+        ProdutoDTO.ProdutoResponse resp = produtoService.criarProduto(req);
+
+        assertThat(resp.getId()).isEqualTo(501L);
+        assertThat(resp.getNome()).isEqualTo("Produto Completo");
+        assertThat(resp.getDescricao()).isEqualTo("Descrição detalhada do produto");
+        assertThat(resp.getDepartamento()).isEqualTo("Eletrônicos");
+    }
+
+    @Test
+    void atualizarProdutoBloqueado() {
+        when(produtoRepository.findById(600L)).thenReturn(Optional.of(Produto.builder().id(600L).build()));
+        when(recordLockService.isProdutoBloqueado(600L)).thenReturn(true);
+
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder().nome("Teste").build();
+
+        assertThrows(RuntimeException.class, () -> produtoService.atualizarProduto(600L, req, 1L, "ip", "ua"));
+    }
+
+    @Test
+    void atualizarProdutoSemLock() {
+        Produto produto = Produto.builder().id(700L).nome("Original").ativo(true).build();
+        when(produtoRepository.findById(700L)).thenReturn(Optional.of(produto));
+        when(recordLockService.isProdutoBloqueado(700L)).thenReturn(false);
+        when(recordLockService.usuarioTemLockProduto(700L, 2L)).thenReturn(false);
+        when(recordLockService.adquirirLockProduto(700L, 2L, "ip", "ua")).thenReturn(false);
+
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder().nome("Novo").build();
+
+        assertThrows(RuntimeException.class, () -> produtoService.atualizarProduto(700L, req, 2L, "ip", "ua"));
+    }
+
+    @Test
+    void verificarStatusLockProdutoNaoEncontrado() {
+        lenient().when(produtoRepository.existsById(900L)).thenReturn(false);
+
+        assertThrows(RuntimeException.class, () -> produtoService.verificarStatusLock(900L, 1L));
+    }
+
+    @Test
+    void buscarPorCodigoResumidoNaoEncontrado() {
+        lenient().when(codigoBarrasService.buscarPorCodigoResumido("R999")).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> produtoService.buscarPorCodigoResumido("R999"));
+    }
+
+    @Test
+    void criarProdutoComMaxCodigoInternoExistente() {
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Com Sequencial")
+                .build();
+
+        lenient().when(codigoBarrasService.gerarProximoCodigo(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn("SEQ001");
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R003");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(10L);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(1001L);
+            return p;
+        });
+
+        Produto produto = Produto.builder()
+                .id(1001L)
+                .nome("Com Sequencial")
+                .codigo("SEQ001")
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+
+
+
+        ProdutoDTO.ProdutoResponse resp = produtoService.criarProduto(req);
+
+        assertThat(resp.getCodigoInternoSequencial()).isEqualTo(11L); // 10 + 1
+    }
+
+    @Test
+    void processarCodigoBarrasPersonalizado() {
+        ProdutoDTO.ProdutoRequest req = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Personalizado")
+                .codigoBarras("CUSTOM123")
+                .build();
+
+        when(codigoBarrasService.detectarTipoCodigo("CUSTOM123")).thenReturn(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO);
+        when(codigoBarrasService.validarCodigoBarras("CUSTOM123", com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)).thenReturn(true);
+        when(produtoRepository.existsByCodigo("CUSTOM123")).thenReturn(false);
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R004");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(null);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(1002L);
+            return p;
+        });
+
+        Produto produto = Produto.builder()
+                .id(1002L)
+                .nome("Produto Personalizado")
+                .codigo("CUSTOM123")
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+
+
+
+        ProdutoDTO.ProdutoResponse resp = produtoService.criarProduto(req);
+
+        assertThat(resp.getCodigoBarras()).isEqualTo("CUSTOM123");
+    }
+
+    @Test
+    void reativarProduto() {
+        // Dado um produto existente inativo
+        Produto produto = Produto.builder()
+                .id(1L)
+                .nome("Produto Inativo")
+                .ativo(false)
+                .build();
+        
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any())).thenReturn(produto);
+
+        // Quando reativado
+        produtoService.reativarProduto(1L);
+
+        // Então deve ficar ativo
+        verify(produtoRepository).save(argThat(p -> p.getAtivo()));
+    }
+
+    @Test 
+    void liberarLockProduto() {
+        // Quando liberar lock
+        produtoService.liberarLockProduto(1L, 100L);
+
+        // Então deve liberar o lock
+        verify(recordLockService).liberarLockProduto(1L, 100L);
+    }
+
+    @Test
+    void listarProdutosDesabilitados() {
+        // Dado produtos desabilitados
+        Produto produto = Produto.builder()
+                .id(1L)
+                .nome("Produto Desabilitado")
+                .ativo(false)
+                .build();
+        
+        PageImpl<Produto> page = new PageImpl<>(java.util.List.of(produto));
+        when(produtoRepository.findByAtivoFalse(any(Pageable.class))).thenReturn(page);
+
+        // Quando listar produtos desabilitados
+        var resultado = produtoService.listarProdutosDesabilitados(Pageable.unpaged());
+
+        // Então deve retornar produtos inativos
+        assertThat(resultado.getContent()).hasSize(1);
+        assertThat(resultado.getContent().get(0).getId()).isEqualTo(1L);
+    }
+
+    @Test
+    void atualizarProdutoComSucesso() {
+        // Dado um produto existente
+        Produto produto = Produto.builder()
+                .id(1L)
+                .nome("Produto Original")
+                .codigo("ORIG123")
+                .preco(new BigDecimal("10.00"))
+                .departamento("01")
+                .tipoCodigoBarras(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+        
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Atualizado")
+                .descricao("Nova descrição")
+                .preco(new BigDecimal("15.00"))
+                .departamento("02")
+                .fornecedor("Fornecedor ABC")
+                .estoqueMinimo(5)
+                .custoUnitario(new BigDecimal("8.00"))
+                .margem(new BigDecimal("25.0"))
+                .pontosRecompensa(10)
+                .build();
+
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(recordLockService.isProdutoBloqueado(1L)).thenReturn(false);
+        when(recordLockService.usuarioTemLockProduto(1L, 100L)).thenReturn(true);
+        when(produtoRepository.save(any())).thenReturn(produto);
+
+        // Quando atualizar
+        ProdutoDTO.ProdutoResponse response = produtoService.atualizarProduto(1L, request, 100L, "127.0.0.1", "TestAgent");
+
+        // Então deve atualizar com sucesso
+        verify(produtoRepository).save(argThat(p -> 
+            p.getNome().equals("Produto Atualizado") &&
+            p.getDescricao().equals("Nova descrição") &&
+            p.getPreco().compareTo(new BigDecimal("15.00")) == 0 &&
+            p.getDepartamento().equals("02") &&
+            p.getFornecedor().equals("Fornecedor ABC") &&
+            p.getEstoqueMinimo().equals(5) &&
+            p.getCustoUnitario().compareTo(new BigDecimal("8.00")) == 0 &&
+            p.getMargem().compareTo(new BigDecimal("25.0")) == 0 &&
+            p.getPontosRecompensa().equals(10)
+        ));
+    }
+
+    @Test
+    void atualizarProdutoComCodigoBarrasDiferente() {
+        // Dado um produto existente
+        Produto produto = Produto.builder()
+                .id(1L)
+                .nome("Produto Original")
+                .codigo("ORIG123")
+                .tipoCodigoBarras(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+        
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Atualizado")
+                .codigoBarras("NOVO456")
+                .tipoCodigoBarras(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)
+                .build();
+
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(recordLockService.isProdutoBloqueado(1L)).thenReturn(false);
+        when(recordLockService.usuarioTemLockProduto(1L, 100L)).thenReturn(true);
+        when(produtoRepository.existsByCodigo("NOVO456")).thenReturn(false);
+        when(codigoBarrasService.validarCodigoBarras("NOVO456", com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)).thenReturn(true);
+        when(produtoRepository.save(any())).thenReturn(produto);
+
+        // Quando atualizar
+        produtoService.atualizarProduto(1L, request, 100L, "127.0.0.1", "TestAgent");
+
+        // Então deve atualizar o código
+        verify(produtoRepository).save(argThat(p -> p.getCodigo().equals("NOVO456")));
+    }
+
+    @Test
+    void atualizarProdutoComDepartamentoAlterado() {
+        // Dado um produto sem tamanhos no departamento 06
+        Produto produto = Produto.builder()
+                .id(1L)
+                .nome("Produto Roupas")
+                .departamento("06")
+                .ativo(true)
+                .tamanhos(java.util.Collections.emptyList())
+                .build();
+        
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Roupas")
+                .departamento("01")
+                .build();
+
+        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(recordLockService.isProdutoBloqueado(1L)).thenReturn(false);
+        when(recordLockService.usuarioTemLockProduto(1L, 100L)).thenReturn(true);
+        when(produtoRepository.save(any())).thenReturn(produto);
+
+        // Quando atualizar
+        produtoService.atualizarProduto(1L, request, 100L, "127.0.0.1", "TestAgent");
+
+        // Então deve permitir a alteração
+        verify(produtoRepository).save(argThat(p -> p.getDepartamento().equals("01")));
+    }
+
+    @Test
+    void processarCodigoBarrasComGeracaoAutomatica() {
+        // Dado um request com geração automática
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Auto")
+                .gerarCodigoAutomatico(true)
+                .tipoCodigoBarras(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)
+                .prefixoCodigo("AUTO")
+                .build();
+
+        when(codigoBarrasService.gerarProximoCodigo(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO, "AUTO"))
+                .thenReturn("AUTO001");
+        when(produtoRepository.existsByCodigo("AUTO001")).thenReturn(false);
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R005");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(null);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(1003L);
+            return p;
+        });
+
+        // Quando criar
+        ProdutoDTO.ProdutoResponse response = produtoService.criarProduto(request);
+
+        // Então deve gerar código automaticamente
+        verify(codigoBarrasService).gerarProximoCodigo(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO, "AUTO");
+    }
+
+    @Test
+    void processarCodigoBarrasComDeteccaoAutomaticaTipo() {
+        // Dado um request com código mas sem tipo especificado
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Detectado")
+                .codigoBarras("DET123")
+                .build();
+
+        when(codigoBarrasService.detectarTipoCodigo("DET123")).thenReturn(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO);
+        when(codigoBarrasService.validarCodigoBarras("DET123", com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO)).thenReturn(true);
+        when(produtoRepository.existsByCodigo("DET123")).thenReturn(false);
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R006");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(null);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(1004L);
+            return p;
+        });
+
+        // Quando criar
+        ProdutoDTO.ProdutoResponse response = produtoService.criarProduto(request);
+
+        // Então deve detectar o tipo automaticamente
+        verify(codigoBarrasService).detectarTipoCodigo("DET123");
+        verify(codigoBarrasService).validarCodigoBarras("DET123", com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO);
+    }
+
+    @Test
+    void processarCodigoBarrasSemCodigoEspecificado() {
+        // Dado um request sem código de barras
+        ProdutoDTO.ProdutoRequest request = ProdutoDTO.ProdutoRequest.builder()
+                .nome("Produto Sem Código")
+                .prefixoCodigo("CUSTOM")
+                .build();
+
+        when(codigoBarrasService.gerarProximoCodigo(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO, "CUSTOM"))
+                .thenReturn("CUSTOM001");
+        when(produtoRepository.existsByCodigo("CUSTOM001")).thenReturn(false);
+        when(securityUtil.getUsuarioLogado()).thenReturn(new com.tcc.estoque.model.Usuario());
+        when(codigoBarrasService.gerarProximoCodigoResumido()).thenReturn("R007");
+        when(produtoRepository.findMaxCodigoInternoSequencial()).thenReturn(null);
+        when(produtoRepository.save(any())).thenAnswer(inv -> {
+            Produto p = inv.getArgument(0);
+            p.setId(1005L);
+            return p;
+        });
+
+        // Quando criar
+        ProdutoDTO.ProdutoResponse response = produtoService.criarProduto(request);
+
+        // Então deve gerar código personalizado com prefixo
+        verify(codigoBarrasService).gerarProximoCodigo(com.tcc.estoque.enums.TipoCodigoBarras.PERSONALIZADO, "CUSTOM");
+    }
+
+    @Test
+    void adquirirLockProdutoComLockExistente() {
+        // Dado que o produto já está bloqueado por outro usuário
+        when(produtoRepository.existsById(1L)).thenReturn(true);
+        when(recordLockService.isProdutoBloqueado(1L)).thenReturn(true);
+        when(recordLockService.usuarioTemLockProduto(1L, 100L)).thenReturn(false);
+        
+        Map<String, Object> lockInfo = new HashMap<>();
+        lockInfo.put("usuario_nome", "Outro Usuário");
+        lockInfo.put("data_expiracao", java.sql.Timestamp.valueOf("2025-12-01 23:45:00"));
+        when(recordLockService.obterInfoLockProduto(1L)).thenReturn(lockInfo);
+
+        // Quando tentar adquirir lock
+        ProdutoDTO.LockResponse response = produtoService.adquirirLockProduto(1L, 100L, "127.0.0.1", "TestAgent");
+
+        // Então deve retornar insucesso com informações do bloqueio
+        assertThat(response.getSucesso()).isFalse();
+        assertThat(response.getMensagem()).isEqualTo("Produto está sendo editado por outro usuário");
+        assertThat(response.getBloqueadoPorUsuario()).isEqualTo("Outro Usuário");
+        assertThat(response.getPodeEditar()).isFalse();
+    }
 }
 
 

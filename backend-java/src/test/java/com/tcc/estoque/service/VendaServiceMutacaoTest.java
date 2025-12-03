@@ -6,6 +6,7 @@ import com.tcc.estoque.model.Usuario;
 import com.tcc.estoque.model.Venda;
 import com.tcc.estoque.model.ItemVenda;
 import com.tcc.estoque.model.enums.FormaPagamento;
+import com.tcc.estoque.model.enums.StatusVenda;
 import com.tcc.estoque.repository.ItemVendaRepository;
 import com.tcc.estoque.repository.MovimentacaoEstoqueRepository;
 import com.tcc.estoque.repository.ProdutoRepository;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -47,7 +49,7 @@ class VendaServiceMutacaoTest {
         ItemVenda item = new ItemVenda(); item.setProduto(produto); item.setQuantidade(5);
 
     Venda venda = new Venda(); venda.setId(400L); venda.setItens(Collections.singletonList(item));
-    venda.setStatus(com.tcc.estoque.model.enums.StatusVenda.PENDENTE); 
+    venda.setStatus(StatusVenda.PENDENTE); 
     venda.setUsuario(new Usuario()); 
 
         when(vendaRepository.findById(400L)).thenReturn(java.util.Optional.of(venda));
@@ -65,7 +67,7 @@ class VendaServiceMutacaoTest {
         verify(vendaRepository).save(cap.capture());
         Venda saved = cap.getValue();
 
-    assertThat(saved.getStatus()).isEqualTo(com.tcc.estoque.model.enums.StatusVenda.CONFIRMADA);
+    assertThat(saved.getStatus()).isEqualTo(StatusVenda.CONFIRMADA);
     assertThat(saved.getDataConfirmacao()).isNotNull();
     }
 
@@ -80,7 +82,7 @@ class VendaServiceMutacaoTest {
 
         when(produtoRepository.existsById(10L)).thenReturn(true);
         Produto p = new Produto(); p.setId(10L); p.setEstoque(100); p.setTamanhos(Collections.emptyList());
-        when(produtoRepository.findById(10L)).thenReturn(java.util.Optional.of(p));
+        when(produtoRepository.findById(10L)).thenReturn(Optional.of(p));
 
     when(vendaRepository.save(any())).thenAnswer(inv -> { Venda v = inv.getArgument(0); v.setId(321L); return v; });
     Venda savedVenda = new Venda(); savedVenda.setId(321L); savedVenda.setUsuario(new Usuario()); savedVenda.getUsuario().setNome("Tester"); savedVenda.getUsuario().setEmail("t@t.com"); savedVenda.setItens(Collections.emptyList());
