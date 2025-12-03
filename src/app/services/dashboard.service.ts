@@ -1,46 +1,102 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { BaseService } from './base.service';
-import { MockDataService } from './mock-data.service';
-import { EnvironmentService } from './environment.service';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
-@Injectable({ providedIn: 'root' })
-export class DashboardService extends BaseService {
-  constructor(
-    http: HttpClient,
-    environmentService: EnvironmentService,
-    private mock: MockDataService,
-    private env: EnvironmentService
-  ) {
-    super(http, environmentService);
+export interface ProdutoBaixoEstoque {
+  produtoId: number;
+  nome: string;
+  quantidadeAtual: number;
+  estoqueMinimo: number;
+  categoria: string;
+  preco: number;
+  status: string;
+  id?: number;
+  estoqueAtual?: number;
+  quantidade?: number;
+  estoque?: number;
+  quantidadeMinima?: number;
+}
+
+export interface VendaRecente {
+  vendaId: number;
+  nomeCliente: string;
+  valorTotal: number;
+  dataVenda: string;
+  status: string;
+  quantidadeItens: number;
+  id?: number;
+  cliente?: string;
+  valor?: number;
+  data?: string;
+}
+
+export interface VendaSemana {
+  data: string;
+  valor: number;
+  quantidade: number;
+}
+
+export interface TopProduto {
+  produtoId: number;
+  nome: string;
+  quantidadeVendida: number;
+  faturamento: number;
+  categoria: string;
+  precoUnitario: number;
+}
+
+export interface DashboardStats {
+  totalVendas: number;
+  faturamentoMes: number;
+  faturamentoDia: number;
+  totalProdutos: number;
+  produtosEstoqueBaixo: number;
+  ticketMedio: number;
+  crescimentoMes: number;
+  vendasPendentes: number;
+  totalClientes: number;
+  totalUsuarios: number;
+  eventosAtivos: number;
+  clientesNovosHoje: number;
+  vendasDia?: number;
+  vendasMes?: number;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class DashboardService {
+  private apiUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  getDashboardStats(): Observable<DashboardStats> {
+    return this.http.get<DashboardStats>(`${this.apiUrl}/dashboard/dados`);
   }
 
-  obterEstatisticas(period: 'hoje'|'semana'|'mes' = 'mes'): Observable<any> {
-    if (this.env.isLocal()) {
-      return this.mock.getDashboardStats(period);
-    }
-    return this.get('/dashboard/estatisticas', { periodo: period });
+  getVendasRecentes(): Observable<VendaRecente[]> {
+    return this.http.get<any>(`${this.apiUrl}/dashboard/vendas-recentes`).pipe(
+      map(response => response.vendas)
+    );
   }
 
-  obterVendasSemanais(): Observable<any[]> {
-    if (this.env.isLocal()) {
-      return this.mock.getVendasSemanais();
-    }
-    return this.get('/dashboard/vendas-semana');
+  getProdutosBaixoEstoque(): Observable<ProdutoBaixoEstoque[]> {
+    return this.http.get<any>(`${this.apiUrl}/dashboard/estoque-baixo`).pipe(
+      map(response => response.produtos)
+    );
   }
 
-  obterTopProdutos(limit = 5): Observable<any[]> {
-    if (this.env.isLocal()) {
-      return this.mock.getTopProdutos(limit);
-    }
-    return this.get('/dashboard/top-produtos', { limit: String(limit) });
+  getVendasSemana(): Observable<VendaSemana[]> {
+    return this.http.get<any>(`${this.apiUrl}/dashboard/vendas-semana`).pipe(
+      map(response => response.vendas)
+    );
   }
 
-  obterVendasPorCategoria(): Observable<any[]> {
-    if (this.env.isLocal()) {
-      return this.mock.getVendasPorCategoria();
-    }
-    return this.get('/dashboard/vendas-por-categoria');
+  getTopProdutos(): Observable<TopProduto[]> {
+    return this.http.get<any>(`${this.apiUrl}/dashboard/top-produtos`).pipe(
+      map(response => response.produtos)
+    );
   }
 }

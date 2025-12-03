@@ -20,9 +20,7 @@ export const environment = {
   // Features flags para desenvolvimento
   features: {
     enableDebugMode: true,
-    // When true the frontend forces local/mock behavior even if hostname detection
-    // would point to a real API. Useful for development and demos.
-    enableMockData: true,
+    enableMockData: false,
     enableConsoleLogging: true,
     enableErrorReporting: false
   },

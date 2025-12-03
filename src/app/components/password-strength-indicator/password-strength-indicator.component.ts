@@ -17,7 +17,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   
-  // Estado da validação
   validation = {
     isValid: false,
     score: 0,
@@ -26,10 +25,8 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
     suggestions: [] as string[]
   };
 
-  // Análise detalhada
   analysis: PasswordStrengthResponse | null = null;
   
-  // Estados de UI
   isLoading = false;
   showDetails = false;
   policy: PasswordPolicyResponse | null = null;
@@ -52,7 +49,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Validação em tempo real com debounce
     this.passwordControl.valueChanges
       .pipe(
         debounceTime(300),
@@ -69,7 +65,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
   }
 
   private validatePassword(password: string): void {
-    // Validação local imediata para UX
     const localValidation = this.passwordService.validatePasswordLocally(password);
     this.validation = {
       isValid: localValidation.isValid,
@@ -79,7 +74,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
       suggestions: []
     };
 
-    // Validação completa no servidor
     this.isLoading = true;
     this.passwordService.validatePassword(password, this.email)
       .pipe(takeUntil(this.destroy$))
@@ -94,7 +88,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
           };
           this.isLoading = false;
           
-          // Análise detalhada
           this.getDetailedAnalysis(password);
         },
         error: (error) => {
@@ -141,7 +134,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
       });
   }
 
-  // Métodos para UI
   getProgressBarColor(): string {
     return this.passwordService.getPasswordStrengthColor(this.validation.score);
   }
@@ -172,7 +164,6 @@ export class PasswordStrengthIndicatorComponent implements OnInit, OnDestroy {
     const password = this.passwordControl.value;
     if (password && navigator.clipboard) {
       navigator.clipboard.writeText(password).then(() => {
-        // Aqui você pode adicionar uma notificação de sucesso
         console.log('Senha copiada para a área de transferência');
       });
     }

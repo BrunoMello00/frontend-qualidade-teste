@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <!-- Configurações locais para desenvolvimento -->
+  <localRepository>${user.home}/.m2/repository</localRepository>
+  
+  <!-- Configurações de proxy (se necessário) -->
+  <!--
+  <proxies>
+    <proxy>
+      <id>example-proxy</id>
+      <active>true</active>
+      <protocol>http</protocol>
+      <host>proxy.company.com</host>
+      <port>8080</port>
+    </proxy>
+  </proxies>
+  -->
+
+  <!-- Servidores para autenticação (se necessário) -->
+  <!--
+  <servers>
+    <server>
+      <id>repositorio-interno</id>
+      <username>usuario</username>
+      <password>senha</password>
+    </server>
+  </servers>
+  -->
+
+  <!-- Repositórios espelho para melhor performance -->
+  <mirrors>
+    <!-- Mirror central para repositório brasileiro (opcional) -->
+    <!--
+    <mirror>
+      <id>central-br</id>
+      <mirrorOf>central</mirrorOf>
+      <name>Central Repository Brazil Mirror</name>
+      <url>https://repo1.maven.org/maven2</url>
+    </mirror>
+    -->
+  </mirrors>
+
+  <!-- Perfis de configuração -->
+  <profiles>
+    <profile>
+      <id>desenvolvimento</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <!-- Configurações para desenvolvimento local -->
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring.profiles.active>local</spring.profiles.active>
+        
+        <!-- Desabilitar verificações rigorosas para desenvolvimento -->
+        <maven.test.skip>false</maven.test.skip>
+        <skipTests>false</skipTests>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        
+        <!-- Configurações de timeout -->
+        <maven.artifact.threads>10</maven.artifact.threads>
+      </properties>
+      
+      <!-- Repositórios adicionais (se necessário) -->
+      <repositories>
+        <repository>
+          <id>central</id>
+          <url>https://repo1.maven.org/maven2</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </repository>
+      </repositories>
+      
+      <pluginRepositories>
+        <pluginRepository>
+          <id>central</id>
+          <url>https://repo1.maven.org/maven2</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+  </profiles>
+
+  <!-- Perfis ativos -->
+  <activeProfiles>
+    <activeProfile>desenvolvimento</activeProfile>
+  </activeProfiles>
+
+</settings>

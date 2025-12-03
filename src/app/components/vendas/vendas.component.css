@@ -1,464 +1,171 @@
-/* ===================================
-   CORES E TEMA PRINCIPAL (LARANJA)
-   =================================== */
+/* Vendas Component Styles */
 
-/* Forçar cor laranja para todos os elementos de cor primária na página */
-:host ::ng-deep .text-primary,
-.text-primary {
-  color: #ff6b35 !important;
-}
+/* ===== CORREÇÕES PARA PROBLEMAS VISUAIS ===== */
 
-:host ::ng-deep .bg-primary,
-.bg-primary {
-  background-color: #ff6b35 !important;
-}
-
-:host ::ng-deep .border-primary,
-.border-primary {
-  border-color: #ff6b35 !important;
-}
-
-/* Botões primários laranjas */
-.btn-primary {
-  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
-  border: none !important;
-  color: white !important;
+/* Garantir que labels estejam visíveis */
+.form-label {
+  visibility: visible !important;
+  display: block !important;
   font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  margin-bottom: 0.5rem;
+  color: #495057;
 }
 
-.btn-primary:hover {
-  background: linear-gradient(135deg, #e55a2b 0%, #e57938 100%) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-}
-
-.btn-primary:focus {
-  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
-}
-
-/* Headers e backgrounds primários */
-.bg-primary {
-  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
-}
-
-/* ===================================
-   ANIMAÇÕES
-   =================================== */
-
-/* Animações */
-.slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Borders e elementos que usam a cor primária */
-.border-left-primary {
-  border-left: 4px solid #ff6b35 !important;
-}
-
-/* Cards de estatísticas */
-.stat-card-icon {
-  font-size: 1.8rem;
-  opacity: 0.7;
-  color: #ff6b35;
-}
-
-.stat-card-value {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #ff6b35;
-  line-height: 1;
-}
-
-/* Itens da venda */
-.item-row {
-  border: 1px solid #dee2e6 !important;
-  background-color: #f8f9fa !important;
-  transition: all 0.2s ease;
-}
-
-.item-row:hover {
-  border-color: #ff6b35 !important;
-  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.1);
-}
-
-/* Resumo da venda */
-.venda-summary {
+/* Dropdown de produtos - garantir visibilidade */
+.dropdown-menu {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: absolute;
+  background: white;
   border: 1px solid #dee2e6;
-  background-color: #ffffff !important;
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  z-index: 1050;
+  min-width: 100%;
 }
 
-/* Tabela customizada */
-.table th {
-  background-color: var(--bs-light) !important;
-  border-bottom: 2px solid #ff6b35;
-  font-weight: 600;
-  color: var(--bs-dark);
+.dropdown-menu.show {
+  display: block !important;
 }
 
-.table-hover tbody tr:hover {
-  background-color: rgba(255, 107, 53, 0.05);
+/* Items do dropdown */
+.dropdown-item {
+  display: flex !important;
+  padding: 0.5rem 1rem;
+  color: #212529;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Botões de ação */
-.btn-group .btn {
-  border-radius: 4px;
-  margin: 0 1px;
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: #f8f9fa !important;
+  color: #16181b;
 }
 
-.btn-group .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+/* Nome do produto no dropdown */
+.dropdown-item .fw-medium {
+  color: #212529 !important;
+  font-weight: 500 !important;
+  display: block !important;
+  white-space: normal;
 }
 
-/* Estilos para boxes de filtros clicáveis */
-.filter-box {
-  cursor: pointer;
-  transition: all 0.3s ease;
+.dropdown-item .text-muted {
+  color: #6c757d !important;
+  display: block !important;
+  font-size: 0.875rem;
 }
 
-.filter-box:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+/* Cards e seções de desconto */
+.venda-summary {
+  background-color: #f8f9fa !important;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 1rem;
 }
 
-.filter-box.active-filter {
-  border: 2px solid #ff6b35 !important;
-  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+/* Seção de descontos - melhor visibilidade */
+.discount-section {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
 }
 
-.filter-box:focus {
-  outline: none;
-  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25) !important;
+.discount-value {
+  font-weight: 600 !important;
+  color: #d63384 !important;
+  font-size: 1rem;
 }
 
-.filter-box .bi-funnel {
-  color: #ff6b35;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-/* Badges customizados */
-.badge {
-  font-size: 0.75rem;
+.discount-percentage {
+  color: #dc3545 !important;
+  font-size: 0.875rem;
   font-weight: 500;
+}
+
+/* Campos de entrada */
+.form-control {
+  display: block !important;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #212529;
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+}
+
+.form-control:focus {
+  color: #212529;
+  background-color: #fff;
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Botões */
+.btn {
+  display: inline-block !important;
+  padding: 0.375rem 0.75rem;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  vertical-align: middle;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+}
+
+/* Item da venda */
+.item-row {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+}
+
+/* Totais e valores */
+.total-section {
+  background-color: #e7f3ff;
+  border: 1px solid #b8daff;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.total-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0d6efd;
 }
 
 /* Responsividade */
 @media (max-width: 768px) {
-  .stat-card-value {
-    font-size: 1.5rem;
-  }
-  
-  .stat-card-icon {
-    font-size: 1.5rem;
-  }
-  
-  .item-row .row {
-    gap: 0.5rem;
-  }
-  
-  .btn-group {
-    flex-direction: column;
-  }
-  
-  .btn-group .btn {
-    margin: 1px 0;
-    border-radius: 4px !important;
-  }
-  
-  .table-responsive {
-    font-size: 0.9rem;
-  }
-}
-
-/* Form controls customizados */
-.form-control-sm, .form-select-sm {
-  font-size: 0.9rem;
-}
-
-/* Estados de loading */
-.spinner-custom {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #ff6b35;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* === AUTOCOMPLETE PRODUTO === */
-.position-relative .dropdown-menu {
-  position: absolute !important;
-  top: 100% !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  margin-top: 2px;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-  background-color: white;
-  z-index: 1050;
-}
-
-.dropdown-item {
-  padding: 0.5rem 0.75rem;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-  transition: background-color 0.15s ease-in-out;
-}
-
-.dropdown-item:hover {
-  background-color: #f8f9fa;
-  color: #495057;
-}
-
-.dropdown-item:focus {
-  background-color: #e9ecef;
-  color: #495057;
-  outline: none;
-}
-
-.dropdown-item .badge {
-  font-size: 0.75rem;
-  min-width: 30px;
-  text-align: center;
-}
-
-/* Input com foco no autocomplete */
-.form-control:focus + .dropdown-menu {
-  border-color: #86b7fe;
-}
-
-/* Melhorar responsividade do dropdown */
-@media (max-width: 768px) {
-  .position-relative .dropdown-menu {
+  .dropdown-menu {
     font-size: 0.875rem;
   }
   
-  .dropdown-item {
-    padding: 0.375rem 0.5rem;
-  }
-}
-
-/* === ESTILOS PARA PARCELAMENTO === */
-
-/* Checkbox de parcelamento */
-.form-check-input:checked {
-  background-color: #ff6b35;
-  border-color: #ff6b35;
-}
-
-.form-check-label {
-  cursor: pointer;
-  transition: color 0.15s ease-in-out;
-}
-
-.form-check-label:hover {
-  color: #ff6b35;
-}
-
-/* Card de resumo do parcelamento */
-.card-header.bg-primary {
-  background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%) !important;
-  border-bottom: none;
-}
-
-.card-header.bg-primary .card-title {
-  color: white;
-  font-weight: 600;
-}
-
-/* Seções condicionais de pagamento */
-.payment-section {
-  transition: all 0.3s ease-in-out;
-  opacity: 1;
-}
-
-.payment-section.entering {
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Input groups específicos para juros */
-.input-group .form-control[formcontrolname="jurosPercentual"] + .input-group-text {
-  background-color: #fff3cd;
-  border-color: #ffd43b;
-  color: #d63384;
-  font-weight: bold;
-}
-
-.input-group .form-control[formcontrolname="jurosPercentual"]:focus + .input-group-text {
-  border-color: #ff6b35;
-  background-color: #ffeaa7;
-}
-
-/* Resumo financeiro melhorado */
-.card-body strong {
-  font-weight: 600;
-}
-
-.card-body small.text-muted {
-  font-size: 0.775rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Alert para juros */
-.alert-info {
-  border-left: 4px solid #ff8c42;
-  background-color: #fff3cd;
-  border-color: #ffeaa7;
-  color: #d63384;
-}
-
-.alert-info .bi-info-circle {
-  color: #ff8c42;
-}
-
-/* Hover effects para o card de parcelamento */
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease-in-out;
-}
-
-/* Form controls menores com melhor aparência */
-.form-select-sm, .form-control-sm {
-  border-radius: 0.375rem;
-  transition: all 0.15s ease-in-out;
-  font-size: 0.875rem;
-}
-
-.form-select-sm:focus, .form-control-sm:focus {
-  border-color: #ff8c42;
-  outline: 0;
-  box-shadow: 0 0 0 0.25rem rgba(255, 107, 53, 0.25);
-  transform: translateY(-1px);
-}
-
-/* Destaque para valores importantes */
-.text-success {
-  color: #198754 !important;
-  font-weight: 600;
-}
-
-.text-warning {
-  color: #fd7e14 !important;
-  font-weight: 600;
-}
-
-.text-primary {
-  color: #ff6b35 !important;
-  font-weight: 600;
-}
-
-/* Classes customizadas para laranja */
-.text-orange {
-  color: #ff6b35 !important;
-  font-weight: 600;
-}
-
-.border-orange {
-  border-color: #ff6b35 !important;
-}
-
-.bg-orange {
-  background-color: #ff6b35 !important;
-}
-
-/* Estilos adicionais para garantir elementos laranja */
-.input-group .form-control:focus + .input-group-text {
-  border-color: #ff8c42;
-  box-shadow: 0 0 0 0.25rem rgba(255, 107, 53, 0.25);
-}
-
-.input-group-text {
-  background-color: #e9ecef;
-  border-color: #ced4da;
-  color: #6c757d;
-  font-weight: 600;
-}
-
-/* Visual especial para campos de desconto */
-.input-group .form-control[placeholder*="desconto"],
-.input-group .form-control[formcontrolname*="desconto"],
-.input-group .form-control[formcontrolname*="percentual"] {
-  border-right: none;
-}
-
-.input-group .form-control[placeholder*="desconto"] + .input-group-text,
-.input-group .form-control[formcontrolname*="desconto"] + .input-group-text,
-.input-group .form-control[formcontrolname*="percentual"] + .input-group-text {
-  background-color: #fff3cd;
-  border-color: #ffeaa7;
-  color: #856404;
-  font-weight: bold;
-}
-
-/* Autocomplete focus laranja */
-.form-control:focus + .dropdown-menu {
-  border-color: #ff8c42;
-}
-
-/* Responsividade melhorada para parcelamento */
-@media (max-width: 576px) {
-  .card-body .row.g-2 {
-    gap: 0.75rem !important;
+  .form-control {
+    font-size: 0.875rem;
   }
   
-  .card-body .col-6 {
-    flex: 0 0 auto;
-    width: 50%;
-  }
-  
-  .form-check-label {
-    font-size: 0.9rem;
-  }
-  
-  .card-header h6 {
-    font-size: 0.95rem;
+  .btn {
+    font-size: 0.813rem;
+    padding: 0.25rem 0.5rem;
   }
 }

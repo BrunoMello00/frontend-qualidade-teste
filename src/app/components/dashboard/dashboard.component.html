@@ -123,24 +123,34 @@
         <!-- Gráfico de Vendas da Semana -->
         <div class="col-12 col-lg-8">
           <div class="card card-custom shadow-custom h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="card-title mb-0">
-                  <i class="bi bi-graph-up me-2"></i>
-                  Vendas dos Últimos 7 Dias
-                </h5>
-                <small class="text-muted">Últimos 7 dias</small>
-              </div>
-              <div>
-                <select class="form-select form-select-sm" [(ngModel)]="periodo" (change)="carregarDashboard()">
-                  <option value="hoje">Hoje</option>
-                  <option value="semana">Semana</option>
-                  <option value="mes">Mês</option>
-                </select>
-              </div>
+            <div class="card-header bg-gradient-primary text-white">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-graph-up me-2"></i>
+                Vendas dos Últimos 7 Dias
+              </h5>
             </div>
             <div class="card-body">
-              <canvas id="chartVendasSemana" width="400" height="180"></canvas>
+              <!-- Vendas da semana -->
+              <div *ngIf="vendasSemana.length > 0; else semVendas" class="mb-3">
+                <div *ngFor="let venda of vendasSemana" class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="fw-medium">{{ formatarDiaSemana(venda.data) }}</span>
+                  <div class="d-flex align-items-center">
+                    <div class="progress me-3" style="width: 120px; height: 8px;">
+                      <div class="progress-bar bg-primary" 
+                           [style.width.%]="(venda.valor / getMaxVendaSemana()) * 100"></div>
+                    </div>
+                    <span class="text-primary fw-bold">{{ formatarMoeda(venda.valor) }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <ng-template #semVendas>
+                <div class="text-center py-5">
+                  <i class="bi bi-bar-chart display-4 text-primary mb-3"></i>
+                  <h6 class="text-muted">Vendas dos Últimos 7 Dias</h6>
+                  <small class="text-muted">Carregando dados...</small>
+                </div>
+              </ng-template>
             </div>
           </div>
         </div>
@@ -148,17 +158,34 @@
         <!-- Gráfico de Produtos Mais Vendidos -->
         <div class="col-12 col-lg-4">
           <div class="card card-custom shadow-custom h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <div>
-                <h5 class="card-title mb-0"><i class="bi bi-pie-chart me-2"></i>Top 5 Produtos</h5>
-                <small class="text-muted">Produtos mais vendidos</small>
-              </div>
-              <div>
-                <button class="btn btn-sm btn-outline-secondary" (click)="navegarPara('/produtos')">Ver produtos</button>
-              </div>
+            <div class="card-header bg-gradient-primary text-white">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-pie-chart me-2"></i>
+                Top 5 Produtos
+              </h5>
             </div>
             <div class="card-body">
-              <canvas id="chartTopProdutos" width="300" height="200"></canvas>
+              <!-- Top produtos -->
+              <div *ngIf="topProdutos.length > 0; else semProdutos">
+                <div *ngFor="let produto of topProdutos.slice(0, 5)" class="d-flex justify-content-between align-items-start mb-3">
+                  <div class="flex-grow-1">
+                    <h6 class="mb-1 fw-medium">{{ produto.nome }}</h6>
+                    <small class="text-muted">{{ produto.categoria }}</small>
+                  </div>
+                  <div class="text-end">
+                    <div class="text-primary fw-bold">{{ produto.quantidadeVendida }}</div>
+                    <small class="text-muted">{{ formatarMoeda(produto.faturamento) }}</small>
+                  </div>
+                </div>
+              </div>
+              
+              <ng-template #semProdutos>
+                <div class="text-center py-4">
+                  <i class="bi bi-pie-chart display-4 text-primary mb-3"></i>
+                  <h6 class="text-muted">Top 5 Produtos</h6>
+                  <small class="text-muted">Carregando dados...</small>
+                </div>
+              </ng-template>
             </div>
           </div>
         </div>
@@ -242,7 +269,7 @@
                       </small>
                     </div>
                     <span class="badge bg-success">
-                      {{ formatarMoeda(venda.valor) }}
+                      {{ formatarMoeda(venda.valor || 0) }}
                     </span>
                   </div>
                 </div>

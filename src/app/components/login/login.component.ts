@@ -16,7 +16,6 @@ export class LoginComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
   
-  // Estados do MFA
   showMfaStep = false;
   mfaMethod: 'email' | 'sms' = 'email';
   mfaDestination = '';
@@ -38,18 +37,18 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Verificar se o usuário já está logado
     if (this.authService.isAuthenticated()) {
       this.redirectToHomePage();
     }
   }
 
   private redirectToHomePage(): void {
-    const currentUser = this.authService.getCurrentUser();
-    if (currentUser?.tipoUsuario === 'VENDEDOR') {
-      this.router.navigate(['/vendas']);
-    } else {
+    if (this.authService.canViewDashboard()) {
       this.router.navigate(['/dashboard']);
+    } else if (this.authService.canManageSales() || this.authService.canViewProducts()) {
+      this.router.navigate(['/produtos']);
+    } else {
+      this.router.navigate(['/perfil']);
     }
   }
 
@@ -62,11 +61,9 @@ export class LoginComponent implements OnInit {
       const senha = this.loginForm.get('senha')?.value;
       this.userEmail = email;
 
-      // Primeiro verificar se o login básico é válido e se MFA é necessário
       this.authService.checkMfaRequired(email, senha).subscribe({
         next: (mfaResponse: { mfaRequired?: boolean; requiresMfa?: boolean; mfaMethod?: string; destination?: string; message?: string }) => {
           if (mfaResponse.requiresMfa || mfaResponse.mfaRequired) {
-            // MFA é necessário - mostrar tela de MFA
             this.isLoading = false;
             this.showMfaStep = true;
             this.mfaMethod = (mfaResponse.mfaMethod as 'email' | 'sms') || 'email';
@@ -74,14 +71,12 @@ export class LoginComponent implements OnInit {
             this.successMessage = mfaResponse.message || 'Código MFA enviado';
             this.clearMessages();
           } else {
-            // MFA não é necessário - fazer login direto
             this.performLogin(email, senha);
           }
         },
         error: (error: any) => {
           this.isLoading = false;
           this.errorMessage = 'Email ou senha inválidos.';
-          this.showToast(this.errorMessage, 'error');
           console.error('Erro no login:', error);
         }
       });
@@ -95,13 +90,11 @@ export class LoginComponent implements OnInit {
     this.authService.login(email, senha).subscribe({
       next: (response) => {
         this.isLoading = false;
-        this.showToast('Login realizado com sucesso', 'success');
         this.redirectToHomePage();
       },
       error: (error) => {
         this.isLoading = false;
         this.errorMessage = 'Email ou senha inválidos.';
-        this.showToast(this.errorMessage, 'error');
         console.error('Erro no login:', error);
       }
     });
@@ -120,7 +113,6 @@ export class LoginComponent implements OnInit {
           this.isLoading = false;
           
           if (response.success) {
-            // Login completo com MFA - redirecionar baseado no perfil
             this.successMessage = response.message;
             setTimeout(() => {
               this.redirectToHomePage();
@@ -150,7 +142,6 @@ export class LoginComponent implements OnInit {
         this.isLoading = false;
         this.successMessage = response.message;
         this.mfaForm.get('code')?.setValue('');
-        this.showToast(this.successMessage, 'info');
       },
       error: (error: any) => {
         this.isLoading = false;
@@ -171,31 +162,6 @@ export class LoginComponent implements OnInit {
       const control = this.loginForm.get(key);
       control?.markAsTouched();
     });
-  }
-
-  private showToast(message: string, type: 'success'|'info'|'warning'|'error' = 'success'): void {
-    const toast = document.createElement('div');
-    const bgClass = {
-      'success': 'bg-success',
-      'info': 'bg-info',
-      'warning': 'bg-warning',
-      'error': 'bg-danger'
-    };
-    toast.className = `toast align-items-center text-white ${bgClass[type]} border-0 position-fixed`;
-    toast.style.top = '20px';
-    toast.style.right = '20px';
-    toast.style.zIndex = '9999';
-    toast.setAttribute('role', 'alert');
-    toast.innerHTML = `
-      <div class="d-flex">
-        <div class="toast-body">
-          ${message}
-        </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
-      </div>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
   }
 
   getErrorMessage(field: string): string {

@@ -1,120 +1,90 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { LoginComponent } from './components/login/login.component';
-// IMPORTAÇÃO DE CADASTRO DESABILITADA PARA USO FUTURO
-// import { CadastroComponent } from './components/cadastro/cadastro.component';
+import { CadastroComponent } from './components/cadastro/cadastro.component';
 import { RedefinirSenhaComponent } from './components/redefinir-senha/redefinir-senha.component';
 import { NovaSenhaComponent } from './components/nova-senha/nova-senha.component';
-import { DashboardComponent } from './components/dashboard/dashboard.component';
-import { ProdutosComponent } from './components/produtos/produtos.component';
-import { EstoqueComponent } from './components/estoque/estoque.component';
-import { VendasComponent } from './components/vendas/vendas.component';
-import { RelatoriosComponent } from './components/relatorios/relatorios.component';
 import { PerfilComponent } from './components/perfil/perfil.component';
 import { ConfiguracoesComponent } from './components/configuracoes/configuracoes.component';
-import { ClientesComponent } from './components/clientes/clientes.component';
 import { EventosComponent } from './components/eventos/eventos.component';
 import { UserManagementComponent } from './components/user-management/user-management.component';
 import { AcessoNegadoComponent } from './components/acesso-negado/acesso-negado.component';
+import { ProdutosComponent } from './components/produtos/produtos.component';
+import { EstoqueComponent } from './components/estoque/estoque.component';
+import { SistemaPontuacaoComponent } from './components/sistema-pontuacao/sistema-pontuacao.component';
+import { VendasComponent } from './components/vendas/vendas.component';
+import { ClientesComponent } from './components/clientes/clientes.component';
+import { ProdutosDefeituososComponent } from './components/produtos-defeituosos/produtos-defeituosos.component';
+
 import { AuthGuard } from './guards/auth.guard';
-import { PermissionGuard } from './guards/permission.guard';
+import { SimpleAuthGuard } from './guards/simple-auth.guard';
+import { RoleGuard } from './guards/role.guard';
+import { PageAccessGuard } from './guards/page-access.guard';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
-  // ROTA DE CADASTRO DESABILITADA PARA USO FUTURO
-  // { path: 'cadastro', component: CadastroComponent },
+  { path: 'cadastro', component: CadastroComponent },
   { path: 'redefinir-senha', component: RedefinirSenhaComponent },
   { path: 'nova-senha', component: NovaSenhaComponent },
+  
   { 
     path: 'dashboard', 
-    component: DashboardComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireDashboardAccess: true,
-      roles: ['OWNER', 'ADMIN']
-    }
-  },
-  { 
-    path: 'produtos', 
-    component: ProdutosComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireProductAccess: true 
-    }
-  },
-  { 
-    path: 'estoque', 
-    component: EstoqueComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireStockAccess: true 
-    }
-  },
-  { 
-    path: 'vendas', 
-    component: VendasComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireSalesAccess: true 
-    }
+    loadChildren: () => import('./components/dashboard/dashboard.module').then(m => m.DashboardModule),
+    canActivate: [SimpleAuthGuard, PageAccessGuard]
   },
   { 
     path: 'clientes', 
     component: ClientesComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireClientAccess: true 
-    }
-  },
-  { 
-    path: 'eventos', 
-    component: EventosComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireEventAccess: true 
-    }
-  },
-  { 
-    path: 'usuarios', 
-    component: UserManagementComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireUserManagement: true,
-      adminOnly: true 
-    }
+    canActivate: [SimpleAuthGuard, PageAccessGuard] 
   },
   { 
     path: 'relatorios', 
-    component: RelatoriosComponent, 
-    canActivate: [AuthGuard, PermissionGuard],
-    data: { 
-      requireReportsAccess: true,
-      roles: ['OWNER', 'ADMIN']
-    }
+    loadChildren: () => import('./components/relatorios/relatorios.module').then(m => m.RelatoriosModule),
+    canActivate: [SimpleAuthGuard, PageAccessGuard]
   },
   { 
-    path: 'perfil', 
-    component: PerfilComponent, 
-    canActivate: [AuthGuard] 
+    path: 'produtos', 
+    component: ProdutosComponent, 
+    canActivate: [SimpleAuthGuard, PageAccessGuard] 
   },
   { 
-    path: 'configuracoes', 
-    component: ConfiguracoesComponent, 
-    canActivate: [AuthGuard] 
+    path: 'vendas', 
+    component: VendasComponent, 
+    canActivate: [SimpleAuthGuard, PageAccessGuard] 
   },
   { 
-    path: 'acesso-negado', 
-    component: AcessoNegadoComponent 
+    path: 'estoque', 
+    component: EstoqueComponent, 
+    canActivate: [SimpleAuthGuard, PageAccessGuard]
   },
-  { path: '**', redirectTo: '/produtos' }
+  { 
+    path: 'produtos-defeituosos', 
+    component: ProdutosDefeituososComponent, 
+    canActivate: [SimpleAuthGuard, PageAccessGuard]
+  },
+  { 
+    path: 'sistema-pontuacao', 
+    component: SistemaPontuacaoComponent, 
+    canActivate: [SimpleAuthGuard]
+  },
+  
+  { path: 'perfil', component: PerfilComponent, canActivate: [SimpleAuthGuard] },
+  { path: 'configuracoes', component: ConfiguracoesComponent, canActivate: [SimpleAuthGuard] },
+  { path: 'eventos', component: EventosComponent, canActivate: [SimpleAuthGuard, PageAccessGuard] },
+  { 
+    path: 'user-management', 
+    component: UserManagementComponent, 
+    canActivate: [SimpleAuthGuard, PageAccessGuard]
+  },
+  
+  { path: 'acesso-negado', component: AcessoNegadoComponent },
+  
+  { path: '**', redirectTo: '/login' }
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes, {
-    scrollPositionRestoration: 'top',
-    anchorScrolling: 'enabled'
-  })],
+  imports: [RouterModule.forRoot(routes)],
   exports: [RouterModule]
 })
 export class AppRoutingModule { }

@@ -15,27 +15,15 @@ export class EnvironmentService {
    * Detecta automaticamente se está rodando localmente ou em produção
    */
   getApiUrl(): string {
-    // If the environment explicitly forces mock data, always use local API URL
-    try {
-      if ((environment as any).features && (environment as any).features.enableMockData) {
-        return this.localApiUrl;
-      }
-    } catch (e) {
-      // ignore and continue detection
-    }
-
-    // Se environment.production for true, usar Azure
     if (environment.production) {
       return this.azureApiUrl;
     }
 
-    // Se hostname for localhost ou 127.0.0.1, usar local
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return this.localApiUrl;
     }
 
-    // Se estiver rodando em Azure Static Web Apps ou outro domínio, usar Azure API
     if (hostname.includes('azurestaticapps.net') || 
         hostname.includes('azurewebsites.net') ||
         hostname.includes('azure.com') ||
@@ -43,7 +31,6 @@ export class EnvironmentService {
       return this.azureApiUrl;
     }
 
-    // Fallback para local se não conseguir detectar
     return this.localApiUrl;
   }
 
@@ -121,11 +108,9 @@ export class EnvironmentService {
     console.group('🌍 Environment Information');
     console.log('📡 API URL:', info.apiUrl);
     console.log('🏠 Is Local:', info.isLocal);
-    console.log('☁️ Is Production:', info.isProduction);
     console.log('🌐 Hostname:', info.hostname);
     console.log('🔗 Protocol:', info.protocol);
     console.log('🚪 Port:', info.port);
-    console.log('⚙️ Environment:', info.environment);
     console.groupEnd();
   }
 }

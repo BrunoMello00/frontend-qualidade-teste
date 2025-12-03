@@ -1,0 +1,359 @@
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>
+            <h3 class="mb-0"><i class="bi bi-person-gear me-2"></i>Gestão de Usuários</h3>
+            <p class="text-muted mb-0">Gerencie usuários do sistema</p>
+          </div>
+          <button class="btn btn-primary" (click)="openCreateModal()">
+            <i class="bi bi-plus-lg me-1"></i>
+            Novo Usuário
+          </button>
+        </div>
+        <div class="card-body">
+          
+          <!-- Filtros -->
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <input type="text" 
+                     class="form-control" 
+                     placeholder="Buscar por nome ou email..."
+                     [(ngModel)]="filtroTermo"
+                     (ngModelChange)="aplicarFiltros()">
+            </div>
+            <div class="col-md-3">
+              <select class="form-select" 
+                      [(ngModel)]="filtroTipo"
+                      (ngModelChange)="aplicarFiltros()">
+                <option value="">Todos os tipos</option>
+                <option value="ADMIN">Administrador</option>
+                <option value="VENDEDOR">Vendedor</option>
+                <option value="OWNER">Proprietário</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <select class="form-select"
+                      [(ngModel)]="filtroStatus"
+                      (ngModelChange)="aplicarFiltros()">
+                <option value="">Todos os status</option>
+                <option value="ATIVO">Ativo</option>
+                <option value="INATIVO">Inativo</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-outline-secondary" (click)="limparFiltros()">
+                <i class="bi bi-arrow-clockwise"></i>
+                Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div *ngIf="carregandoUsuarios" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2 text-muted">Carregando usuários...</p>
+          </div>
+
+          <!-- Tabela de usuários -->
+          <div *ngIf="!carregandoUsuarios" class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Tipo</th>
+                  <th>Status</th>
+                  <th>Último Acesso</th>
+                  <th class="text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let usuario of usuariosPaginados">
+                  <td>
+                    <strong>{{ usuario.nome }}</strong>
+                  </td>
+                  <td>{{ usuario.email }}</td>
+                  <td>
+                    <span class="badge" 
+                          [class]="usuario.tipoUsuario === 'ADMIN' ? 'bg-primary' : 
+                                   usuario.tipoUsuario === 'OWNER' ? 'bg-success' : 'bg-secondary'">
+                      {{ usuario.tipoUsuario }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" 
+                          [class]="usuario.ativo ? 'bg-success' : 'bg-danger'">
+                      {{ usuario.ativo ? 'Ativo' : 'Inativo' }}
+                    </span>
+                  </td>
+                  <td>{{ usuario.ultimoAcesso || 'Nunca' }}</td>
+                  <td class="text-center">
+                    <div class="btn-group" role="group">
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-info"
+                              (click)="openDetalhesModal(usuario)"
+                              title="Ver detalhes">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-primary"
+                              (click)="openEditModal(usuario)"
+                              title="Editar">
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button *ngIf="!usuario.ativo" 
+                              type="button" 
+                              class="btn btn-sm btn-outline-success"
+                              (click)="confirmarAtivar(usuario)"
+                              title="Ativar">
+                        <i class="bi bi-check-circle"></i>
+                      </button>
+                      <button *ngIf="usuario.ativo" 
+                              type="button" 
+                              class="btn btn-sm btn-outline-warning"
+                              (click)="confirmarDesativar(usuario)"
+                              title="Desativar">
+                        <i class="bi bi-pause-circle"></i>
+                      </button>
+                      <button type="button" 
+                              class="btn btn-sm btn-outline-danger"
+                              (click)="confirmarExcluir(usuario)"
+                              title="Excluir">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <!-- Mensagem quando não há usuários -->
+            <div *ngIf="usuariosFiltrados.length === 0" class="text-center py-4">
+              <i class="bi bi-people display-1 text-muted"></i>
+              <h5 class="text-muted mt-3">Nenhum usuário encontrado</h5>
+              <p class="text-muted">Tente ajustar os filtros ou adicione um novo usuário</p>
+            </div>
+          </div>
+
+          <!-- Paginação -->
+          <div *ngIf="usuariosFiltrados.length > itensPorPagina" class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              <small class="text-muted">
+                Mostrando {{ (paginaAtual - 1) * itensPorPagina + 1 }} a 
+                {{ Math.min(paginaAtual * itensPorPagina, usuariosFiltrados.length) }} de 
+                {{ usuariosFiltrados.length }} usuários
+              </small>
+            </div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" [class.disabled]="paginaAtual === 1">
+                  <button class="page-link" (click)="paginaAnterior()">Anterior</button>
+                </li>
+                <li class="page-item" 
+                    *ngFor="let pagina of [].constructor(totalPaginas); let i = index"
+                    [class.active]="paginaAtual === i + 1">
+                  <button class="page-link" (click)="irParaPagina(i + 1)">{{ i + 1 }}</button>
+                </li>
+                <li class="page-item" [class.disabled]="paginaAtual === totalPaginas">
+                  <button class="page-link" (click)="proximaPagina()">Próxima</button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Usuário (Criar/Editar) -->
+<div class="modal fade" [class.show]="showUsuarioModal" [style.display]="showUsuarioModal ? 'block' : 'none'"
+     id="usuarioModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ usuarioSelecionado ? 'Editar Usuário' : 'Novo Usuário' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeUsuarioModal()"></button>
+      </div>
+      <form [formGroup]="usuarioForm" (ngSubmit)="salvarUsuario()">
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" formControlName="nome"
+                       [class.is-invalid]="temErro('nome')">
+                <div *ngIf="temErro('nome')" class="invalid-feedback">
+                  {{ obterMensagemErro('nome') }}
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Email *</label>
+                <input type="email" class="form-control" formControlName="email"
+                       [class.is-invalid]="temErro('email')">
+                <div *ngIf="temErro('email')" class="invalid-feedback">
+                  {{ obterMensagemErro('email') }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Tipo de Usuário *</label>
+                <select class="form-select" formControlName="tipoUsuario"
+                        [class.is-invalid]="temErro('tipoUsuario')">
+                  <option value="">Selecione...</option>
+                  <option *ngFor="let tipo of tiposUsuario" [value]="tipo.value">
+                    {{ tipo.label }}
+                  </option>
+                </select>
+                <div *ngIf="temErro('tipoUsuario')" class="invalid-feedback">
+                  {{ obterMensagemErro('tipoUsuario') }}
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Telefone</label>
+                <input type="text" class="form-control" formControlName="telefone">
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Observações</label>
+            <textarea class="form-control" rows="3" formControlName="observacoes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeUsuarioModal()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="salvandoUsuario">
+            <span *ngIf="salvandoUsuario" class="spinner-border spinner-border-sm me-1"></span>
+            {{ usuarioSelecionado ? 'Atualizar' : 'Criar' }} Usuário
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal fade" [class.show]="showDetalhesModal" [style.display]="showDetalhesModal ? 'block' : 'none'"
+     id="detalhesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalhes do Usuário</h5>
+        <button type="button" class="btn-close" (click)="closeDetalhesModal()"></button>
+      </div>
+      <div class="modal-body" *ngIf="usuarioSelecionado">
+        <div class="row">
+          <div class="col-md-6">
+            <h6>Informações Básicas</h6>
+            <table class="table table-sm">
+              <tr>
+                <td><strong>Nome:</strong></td>
+                <td>{{ usuarioSelecionado?.nome }}</td>
+              </tr>
+              <tr>
+                <td><strong>Email:</strong></td>
+                <td>{{ usuarioSelecionado?.email }}</td>
+              </tr>
+              <tr>
+                <td><strong>Tipo:</strong></td>
+                <td>
+                  <span class="badge bg-primary">{{ usuarioSelecionado?.tipoUsuario }}</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Status:</strong></td>
+                <td>
+                  <span class="badge" [class]="usuarioSelecionado?.ativo ? 'bg-success' : 'bg-danger'">
+                    {{ usuarioSelecionado?.ativo ? 'Ativo' : 'Inativo' }}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Telefone:</strong></td>
+                <td>{{ usuarioSelecionado?.telefone || 'Não informado' }}</td>
+              </tr>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <h6>Histórico de Acesso</h6>
+            <table class="table table-sm">
+              <tr>
+                <td><strong>Último Acesso:</strong></td>
+                <td>{{ usuarioSelecionado?.ultimoAcesso || 'Nunca' }}</td>
+              </tr>
+              <tr>
+                <td><strong>Data de Cadastro:</strong></td>
+                <td>{{ usuarioSelecionado?.dataCadastro || 'Não disponível' }}</td>
+              </tr>
+              <tr>
+                <td><strong>Tentativas de Login:</strong></td>
+                <td>{{ usuarioSelecionado?.tentativasLogin || 0 }}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        
+        <div *ngIf="usuarioSelecionado?.observacoes" class="mt-3">
+          <h6>Observações</h6>
+          <p class="mb-0">{{ usuarioSelecionado?.observacoes }}</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeDetalhesModal()">
+          Fechar
+        </button>
+        <button type="button" class="btn btn-primary" 
+                (click)="closeDetalhesModal(); openEditModal(usuarioSelecionado!)">
+          <i class="bi bi-pencil me-1"></i>
+          Editar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" [class.show]="showConfirmModal" [style.display]="showConfirmModal ? 'block' : 'none'"
+     id="confirmModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ tituloConfirmacao }}</h5>
+        <button type="button" class="btn-close" (click)="closeConfirmModal()"></button>
+      </div>
+      <div class="modal-body">
+        <p>{{ mensagemConfirmacao }}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeConfirmModal()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-danger" (click)="executarAcao()">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay para modais -->
+<div *ngIf="showUsuarioModal || showDetalhesModal || showConfirmModal"
+     class="modal-backdrop fade show"
+     (click)="showUsuarioModal && closeUsuarioModal() || showDetalhesModal && closeDetalhesModal() || showConfirmModal && closeConfirmModal()">
+</div>

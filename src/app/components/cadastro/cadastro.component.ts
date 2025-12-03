@@ -20,7 +20,6 @@ import { FormBuilder, FormGroup, Validators, FormControl, AbstractControl } from
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
-// INTERFACES LOCAIS PARA CADASTRO DESABILITADO
 interface CadastroRequest {
   nome: string;
   email: string;
@@ -64,13 +63,11 @@ export class CadastroComponent implements OnInit {
       aceitaTermos: [false, [Validators.requiredTrue]]
     }, { validators: this.passwordMatchValidator });
 
-    // Se já estiver autenticado, redirecionar para o dashboard
     if (this.authService.getToken()) {
       this.router.navigate(['/dashboard']);
     }
   }
 
-  // Validador personalizado para verificar se as senhas coincidem
   passwordMatchValidator(control: AbstractControl): { [key: string]: boolean } | null {
     const senha = control.get('senha');
     const confirmarSenha = control.get('confirmarSenha');
@@ -86,7 +83,6 @@ export class CadastroComponent implements OnInit {
     }
   }
 
-  // Métodos para o template
   isFieldInvalid(fieldName: string): boolean {
     const field = this.cadastroForm.get(fieldName);
     return !!(field && field.invalid && field.touched);
@@ -131,15 +127,12 @@ export class CadastroComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    // MÉTODO DE CADASTRO DESABILITADO
-    // Este sistema é para uso único/interno - cadastro não necessário
     setTimeout(() => {
       this.errorMessage = 'Função de cadastro desabilitada. Entre em contato com o administrador.';
       this.isSubmitting = false;
     }, 1000);
     
     /*
-    // CÓDIGO ORIGINAL PRESERVADO PARA USO FUTURO
     const dadosCadastro = {
       nome: this.cadastroForm.get('nome')?.value,
       email: this.cadastroForm.get('email')?.value,
@@ -211,7 +204,6 @@ export class CadastroComponent implements OnInit {
       }
     }
 
-    // Verificar erro de senhas diferentes
     if (fieldName === 'confirmarSenha' && this.cadastroForm.errors?.['senhasDiferentes']) {
       return 'Senhas não coincidem';
     }
@@ -219,7 +211,6 @@ export class CadastroComponent implements OnInit {
     return '';
   }
 
-  // Máscara para telefone
   onTelefoneInput(event: any): void {
     let value = event.target.value.replace(/\D/g, '');
     
@@ -235,7 +226,6 @@ export class CadastroComponent implements OnInit {
     this.cadastroForm.get('telefone')?.setValue(value);
   }
 
-  // Máscara para CPF
   onCpfInput(event: any): void {
     let value = event.target.value.replace(/\D/g, '');
     
@@ -251,7 +241,6 @@ export class CadastroComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
-  // MÉTODOS DE NAVEGAÇÃO PARA TEMPLATE DESABILITADO
   irParaLogin() {
     this.router.navigate(['/login']);
   }

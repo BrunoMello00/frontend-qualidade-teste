@@ -20,7 +20,6 @@ export class EnvironmentUtils {
     console.log('🏠 Hostname:', hostname);
     console.log('🔗 Protocol:', protocol);
     console.log('🚪 Port:', port);
-    console.log('⚙️ Development Mode:', isDev);
     
     // Detectar ambiente baseado na URL
     const environment = EnvironmentUtils.detectEnvironment();
@@ -29,7 +28,6 @@ export class EnvironmentUtils {
     // Validar configuração
     const validation = EnvironmentUtils.validateConfiguration();
     if (validation.valid) {
-      console.log('✅ Environment configuration is valid');
     } else {
       console.warn('⚠️ Environment configuration issues:', validation.issues);
     }

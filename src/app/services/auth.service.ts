@@ -15,7 +15,6 @@ import {
   ValidacaoSenha
 } from '../models/user.models';
 import { EnvironmentService } from './environment.service';
-import { MockDataService } from './mock-data.service';
 
 @Injectable({
   providedIn: 'root'
@@ -26,50 +25,32 @@ export class AuthService {
   private readonly USER_KEY = 'current_user';
   private readonly PERMISSIONS_KEY = 'user_permissions';
 
-  // BehaviorSubjects para estado reativo
   private currentUserSubject = new BehaviorSubject<Usuario | null>(null);
   private isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
   private permissionsSubject = new BehaviorSubject<string[]>([]);
   private loadingSubject = new BehaviorSubject<boolean>(false);
 
-  // Observables públicos
   public currentUser$ = this.currentUserSubject.asObservable();
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
   public permissions$ = this.permissionsSubject.asObservable();
   public loading$ = this.loadingSubject.asObservable();
 
-  // Timer para refresh automático do token
   private refreshTimer?: any;
 
   constructor(
     private http: HttpClient,
     private router: Router,
-    private environmentService: EnvironmentService,
-    private mockDataService: MockDataService
+    private environmentService: EnvironmentService
   ) {
     this.initializeAuth();
-    // Log das informações do ambiente no console
     this.environmentService.logEnvironmentInfo();
   }
 
-  // Injetar MockDataService apenas quando necessário (usado via property para evitar breaking changes)
-  // O MockDataService será injetado dinamicamente para não quebrar instâncias existentes
-  private get mock() {
-    // @ts-ignore - injector pattern simplificado
-    return (this as any).mockDataService as MockDataService | null;
-  }
-
-  // ===================================
-  // MÉTODOS DE URL
-  // ===================================
 
   private getApiUrl(): string {
     return `${this.environmentService.getApiUrl()}/auth`;
   }
 
-  // ===================================
-  // INICIALIZAÇÃO E ESTADO
-  // ===================================
 
   private initializeAuth(): void {
     const token = this.getToken();
@@ -102,20 +83,9 @@ export class AuthService {
     }
   }
 
-  // ===================================
-  // AUTENTICAÇÃO MULTIFATOR (MFA)
-  // ===================================
 
   checkMfaRequired(email: string, senha: string): Observable<{ mfaRequired: boolean; userEmail?: string }> {
     this.loadingSubject.next(true);
-
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.checkMfaRequired(email, senha).pipe(
-        tap(() => {}),
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
 
     const credentials = { email, senha };
     return this.http.post<{ mfaRequired: boolean; userEmail?: string }>(`${this.getApiUrl()}/check-mfa`, credentials).pipe(
@@ -127,13 +97,6 @@ export class AuthService {
   verifyMfaCode(email: string, codigo: string): Observable<{ success: boolean; message: string }> {
     this.loadingSubject.next(true);
 
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.verifyMfaCode(email, codigo).pipe(
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
-
     const body = { email, codigo };
     return this.http.post<{ success: boolean; message: string }>(`${this.getApiUrl()}/verify-mfa`, body).pipe(
       catchError(this.handleError),
@@ -144,13 +107,6 @@ export class AuthService {
   resendMfaCode(email: string): Observable<{ message: string }> {
     this.loadingSubject.next(true);
 
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.resendMfaCode(email).pipe(
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
-
     const body = { email };
     return this.http.post<{ message: string }>(`${this.getApiUrl()}/resend-mfa`, body).pipe(
       catchError(this.handleError),
@@ -158,14 +114,10 @@ export class AuthService {
     );
   }
 
-  // ===================================
-  // AUTENTICAÇÃO SIMULADA (Para desenvolvimento)
-  // ===================================
 
   login(credentialsOrEmail: LoginRequest | string, senha?: string): Observable<LoginResponse> {
     this.loadingSubject.next(true);
 
-    // Normaliza os parâmetros
     let credentials: LoginRequest;
     if (typeof credentialsOrEmail === 'string') {
       credentials = { email: credentialsOrEmail, senha: senha! };
@@ -173,43 +125,124 @@ export class AuthService {
       credentials = credentialsOrEmail;
     }
 
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.login(credentials).pipe(
-        tap(response => {
-          if (response.success && response.token && response.usuario) {
-            this.setSession(response);
-          }
-        }),
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
-
-    // Chamada real para o backend
-    return this.http.post<LoginResponse>(`${this.getApiUrl()}/login`, credentials).pipe(
-      tap(response => {
-        if (response.success && response.token && response.usuario) {
-          this.setSession(response);
+    return this.http.post<any>(`${this.getApiUrl()}/login`, credentials).pipe(
+      map(response => {
+        const adaptedResponse: LoginResponse = {
+          success: response.success || true,
+          message: response.message || 'Login realizado com sucesso',
+          token: response.token || response.accessToken,
+          refreshToken: response.refreshToken,
+          usuario: response.usuario ? {
+            ...response.usuario,
+            tipoUsuario: this.mapTipoUsuario(response.usuario.tipoUsuario || response.usuario.role),
+            status: 'ATIVO' as StatusUsuario,
+            primeiroAcesso: false,
+            tentativasLogin: 0,
+            dataCriacao: new Date(),
+            dataAtualizacao: new Date(),
+            metaMensal: 0,
+            comissaoPercentual: 0,
+            ativo: response.usuario.ativo !== false
+          } : undefined,
+          permissoes: this.generatePermissionsFromRole(response.usuario?.tipoUsuario || response.usuario?.role)
+        };
+        
+        if (adaptedResponse.success && adaptedResponse.token && adaptedResponse.usuario) {
+          this.setSession(adaptedResponse);
         }
+        
+        return adaptedResponse;
       }),
       catchError(this.handleError),
       finalize(() => this.loadingSubject.next(false))
     );
   }
 
+  private mapTipoUsuario(role: string): TipoUsuario {
+    switch (role?.toUpperCase()) {
+      case 'ADMIN':
+      case 'ADMINISTRADOR':
+        return TipoUsuario.ADMIN;
+      case 'OWNER':
+      case 'PROPRIETARIO':
+        return TipoUsuario.OWNER;
+      case 'VENDEDOR':
+      case 'USER':
+        return TipoUsuario.VENDEDOR;
+      case 'ESTOQUISTA':
+        return TipoUsuario.ESTOQUISTA;
+      case 'COMPRAS':
+        return TipoUsuario.COMPRAS;
+      default:
+        return TipoUsuario.VENDEDOR;
+    }
+  }
+
+  private generatePermissionsFromRole(role: string): string[] {
+    const roleUpper = role?.toUpperCase();
+    
+    switch (roleUpper) {
+      case 'ADMIN':
+      case 'ADMINISTRADOR':
+        return [
+          'USUARIOS_GERENCIAR',
+          'PRODUTOS_GERENCIAR',
+          'VENDAS_GERENCIAR',
+          'ESTOQUE_GERENCIAR',
+          'CLIENTES_GERENCIAR',
+          'EVENTOS_GERENCIAR',
+          'RELATORIOS_VISUALIZAR',
+          'RELATORIOS_GERENCIAIS'
+        ];
+      case 'OWNER':
+      case 'PROPRIETARIO':
+        return [
+          'USUARIOS_GERENCIAR',
+          'PRODUTOS_GERENCIAR',
+          'VENDAS_GERENCIAR',
+          'ESTOQUE_GERENCIAR',
+          'CLIENTES_GERENCIAR',
+          'EVENTOS_GERENCIAR',
+          'RELATORIOS_VISUALIZAR',
+          'RELATORIOS_GERENCIAIS',
+          'CONFIGURACOES_SISTEMA'
+        ];
+      case 'VENDEDOR':
+      case 'USER':
+        return [
+          'PRODUTOS_VISUALIZAR',
+          'VENDAS_CRIAR',
+          'VENDAS_GERENCIAR',
+          'CLIENTES_VISUALIZAR',
+          'CLIENTES_GERENCIAR',
+          'EVENTOS_VISUALIZAR',
+          'EVENTOS_GERENCIAR'
+        ];
+      case 'ESTOQUISTA':
+        return [
+          'PRODUTOS_VISUALIZAR',
+          'PRODUTOS_GERENCIAR',
+          'ESTOQUE_GERENCIAR',
+          'ESTOQUE_VISUALIZAR',
+          'RELATORIOS_ESTOQUE'
+        ];
+      case 'COMPRAS':
+        return [
+          'PRODUTOS_VISUALIZAR'
+        ];
+      default:
+        return [
+          'PRODUTOS_VISUALIZAR',
+          'VENDAS_CRIAR',
+          'CLIENTES_VISUALIZAR'
+        ];
+    }
+  }
+
   logout(): void {
     this.loadingSubject.next(true);
 
-    // Chamada para o backend para invalidar o token
     const token = this.getToken();
-    if (this.environmentService.isLocal()) {
-      this.mockDataService.logout(token || undefined).subscribe({
-        next: () => this.completeLogout(),
-        error: () => this.completeLogout()
-      });
-      return;
-    }
-
     if (token) {
       this.http.post(`${this.getApiUrl()}/logout`, {}, this.getHttpOptions()).pipe(
         finalize(() => this.completeLogout())
@@ -258,23 +291,9 @@ export class AuthService {
     localStorage.removeItem(this.PERMISSIONS_KEY);
   }
 
-  // ===================================
-  // GESTÃO DE SENHA
-  // ===================================
 
   alterarSenha(request: AlterarSenhaRequest): Observable<ApiResponse> {
     this.loadingSubject.next(true);
-
-    if (this.environmentService.isLocal()) {
-      // Implementação simples de alteração: exige token e atualiza password map
-      return new Observable<ApiResponse>(observer => {
-        setTimeout(() => {
-          observer.next({ success: true, message: 'Senha alterada (mock)' });
-          observer.complete();
-          this.loadingSubject.next(false);
-        }, 300);
-      }).pipe(catchError(this.handleError));
-    }
 
     return this.http.put<ApiResponse>(`${this.getApiUrl()}/alterar-senha`, request, this.getHttpOptions()).pipe(
       catchError(this.handleError),
@@ -284,12 +303,6 @@ export class AuthService {
 
   resetSenha(request: ResetSenhaRequest): Observable<ApiResponse> {
     this.loadingSubject.next(true);
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.solicitarRedefinicaoSenha(request.email).pipe(
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
 
     return this.http.post<ApiResponse>(`${this.getApiUrl()}/reset-senha`, request).pipe(
       catchError(this.handleError),
@@ -299,13 +312,6 @@ export class AuthService {
 
   solicitarRedefinicaoSenha(request: { email: string }): Observable<{ mensagem: string }> {
     this.loadingSubject.next(true);
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.solicitarRedefinicaoSenha(request.email).pipe(
-        map((resp: ApiResponse) => ({ mensagem: resp.message })),
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
 
     return this.http.post<{ mensagem: string }>(`${this.getApiUrl()}/solicitar-redefinicao`, request).pipe(
       catchError(this.handleError),
@@ -315,13 +321,6 @@ export class AuthService {
 
   redefinirSenha(dados: { token: string; novaSenha: string; confirmarSenha: string }): Observable<{ mensagem: string }> {
     this.loadingSubject.next(true);
-    if (this.environmentService.isLocal()) {
-      return this.mockDataService.redefinirSenha(dados.token, dados.novaSenha).pipe(
-        map((resp: ApiResponse) => ({ mensagem: resp.message })),
-        catchError(this.handleError),
-        finalize(() => this.loadingSubject.next(false))
-      );
-    }
 
     return this.http.post<{ mensagem: string }>(`${this.getApiUrl()}/redefinir-senha`, dados).pipe(
       catchError(this.handleError),
@@ -348,9 +347,6 @@ export class AuthService {
     return validacao;
   }
 
-  // ===================================
-  // TOKENS E REFRESH
-  // ===================================
 
   getToken(): string | null {
     return localStorage.getItem(this.TOKEN_KEY);
@@ -365,15 +361,6 @@ export class AuthService {
     
     if (!refreshToken) {
       return throwError('Refresh token não encontrado');
-    }
-
-    if (this.environmentService.isLocal()) {
-      // No mock, apenas falhar se não houver refresh token
-      return new Observable<LoginResponse>(observer => {
-        setTimeout(() => {
-          observer.error('Refresh token não suportado no mock');
-        }, 300);
-      });
     }
 
     const body = { refreshToken };
@@ -393,7 +380,6 @@ export class AuthService {
   private startRefreshTimer(): void {
     this.stopRefreshTimer();
     
-    // Renovar token a cada 55 minutos (assumindo que expira em 1 hora)
     this.refreshTimer = timer(55 * 60 * 1000, 55 * 60 * 1000)
       .pipe(
         switchMap(() => this.refreshToken())
@@ -410,9 +396,6 @@ export class AuthService {
     }
   }
 
-  // ===================================
-  // PERMISSÕES E AUTORIZAÇÃO
-  // ===================================
 
   hasPermission(permission: string): boolean {
     const permissions = this.permissionsSubject.value;
@@ -442,6 +425,16 @@ export class AuthService {
     return user?.tipoUsuario === TipoUsuario.VENDEDOR;
   }
 
+  isEstoquista(): boolean {
+    const user = this.currentUserSubject.value;
+    return user?.tipoUsuario === TipoUsuario.ESTOQUISTA;
+  }
+
+  isCompras(): boolean {
+    const user = this.currentUserSubject.value;
+    return user?.tipoUsuario === TipoUsuario.COMPRAS;
+  }
+
   canManageUsers(): boolean {
     return this.hasPermission('USUARIOS_GERENCIAR') || this.isOwner() || this.isAdmin();
   }
@@ -450,17 +443,14 @@ export class AuthService {
     const currentUser = this.currentUserSubject.value;
     if (!currentUser) return false;
     
-    // Owner pode excluir todos exceto outros owners
     if (currentUser.tipoUsuario === TipoUsuario.OWNER) {
       return targetUserType !== TipoUsuario.OWNER;
     }
     
-    // Admin pode excluir apenas vendedores
     if (currentUser.tipoUsuario === TipoUsuario.ADMIN) {
-      return targetUserType === TipoUsuario.VENDEDOR;
+      return targetUserType === TipoUsuario.VENDEDOR || targetUserType === TipoUsuario.ESTOQUISTA || targetUserType === TipoUsuario.COMPRAS;
     }
     
-    // Vendedores não podem excluir ninguém
     return false;
   }
 
@@ -469,37 +459,79 @@ export class AuthService {
   }
 
   canManageProducts(): boolean {
-    return this.hasPermission('PRODUTOS_GERENCIAR') || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isEstoquista();
   }
 
   canViewProducts(): boolean {
-    return this.hasAnyPermission(['PRODUTOS_GERENCIAR', 'PRODUTOS_VISUALIZAR']) || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isEstoquista() || this.isCompras();
   }
 
   canManageSales(): boolean {
-    return this.hasPermission('VENDAS_GERENCIAR') || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
   }
 
   canManageStock(): boolean {
-    return this.hasPermission('ESTOQUE_GERENCIAR') || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isEstoquista();
   }
 
   canManageClients(): boolean {
-    return this.hasPermission('CLIENTES_GERENCIAR') || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
   }
 
   canManageEvents(): boolean {
-    return this.hasPermission('EVENTOS_GERENCIAR') || this.isOwner() || this.isAdmin();
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
   }
 
   canViewDashboard(): boolean {
-    // Dashboard disponível para Owner e Admin apenas
     return this.isOwner() || this.isAdmin();
   }
 
-  // ===================================
-  // GETTERS DE ESTADO
-  // ===================================
+  // Métodos específicos para acesso a páginas - baseado nas regras definidas pelo usuário
+  canAccessEstoquePage(): boolean {
+    // ESTOQUISTA só pode ter acesso à página de estoque
+    // ADMIN e OWNER podem ter acesso a tudo
+    return this.isOwner() || this.isAdmin() || this.isEstoquista();
+  }
+
+  canAccessVendasPage(): boolean {
+    // VENDEDOR só pode ter acesso às páginas de vendas, clientes e eventos
+    // ADMIN e OWNER podem ter acesso a tudo
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
+  }
+
+  canAccessClientesPage(): boolean {
+    // VENDEDOR só pode ter acesso às páginas de vendas, clientes e eventos
+    // ADMIN e OWNER podem ter acesso a tudo
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
+  }
+
+  canAccessEventosPage(): boolean {
+    // VENDEDOR só pode ter acesso às páginas de vendas, clientes e eventos
+    // ADMIN e OWNER podem ter acesso a tudo
+    return this.isOwner() || this.isAdmin() || this.isVendedor();
+  }
+
+  canAccessCatalogPage(): boolean {
+    // COMPRAS só pode ter acesso à página de catálogo
+    // ADMIN e OWNER podem ter acesso a tudo
+    return this.isOwner() || this.isAdmin() || this.isCompras();
+  }
+
+  canAccessUsersPage(): boolean {
+    // Apenas ADMIN e OWNER podem gerenciar usuários
+    return this.isOwner() || this.isAdmin();
+  }
+
+  canAccessDashboardPage(): boolean {
+    // Apenas ADMIN e OWNER podem acessar dashboard completo
+    return this.isOwner() || this.isAdmin();
+  }
+
+  canAccessReportsPage(): boolean {
+    // Apenas ADMIN e OWNER podem acessar relatórios
+    return this.isOwner() || this.isAdmin();
+  }
+
 
   getCurrentUser(): Usuario | null {
     return this.currentUserSubject.value;
@@ -517,9 +549,6 @@ export class AuthService {
     return this.loadingSubject.value;
   }
 
-  // ===================================
-  // UTILITÁRIOS
-  // ===================================
 
   public getAuthHeaders(): HttpHeaders {
     const token = this.getToken();
@@ -558,9 +587,6 @@ export class AuthService {
     return throwError(errorMessage);
   }
 
-  // ===================================
-  // VERIFICAÇÕES DE PRIMEIRO ACESSO
-  // ===================================
 
   isPrimeiroAcesso(): boolean {
     const user = this.getCurrentUser();
@@ -568,7 +594,6 @@ export class AuthService {
   }
 
   marcarPrimeiroAcessoCompleto(): Observable<ApiResponse> {
-    // Simulação para desenvolvimento
     return new Observable<ApiResponse>(observer => {
       setTimeout(() => {
         const user = this.getCurrentUser();
@@ -593,14 +618,18 @@ export class AuthService {
     );
   }
 
-  // ===================================
-  // VERIFICAÇÕES DE SESSÃO
-  // ===================================
 
   verificarSessao(): Observable<ApiResponse<Usuario>> {
+    const token = this.getToken();
+    if (!token) {
+      return throwError('Token não encontrado');
+    }
+
     return this.http.get<ApiResponse<Usuario>>(`${this.getApiUrl()}/verificar-sessao`, this.getHttpOptions()).pipe(
       catchError(error => {
+        console.log('Erro ao verificar sessão:', error);
         if (error.status === 401) {
+          console.log('Sessão expirada, fazendo logout...');
           this.completeLogout();
         }
         return throwError(error);
@@ -608,9 +637,6 @@ export class AuthService {
     );
   }
 
-  // ===================================
-  // MÉTODOS PARA COMPATIBILIDADE COM CÓDIGO EXISTENTE
-  // ===================================
 
   getAuthHeadersOld(): HttpHeaders {
     const token = this.getToken();
@@ -620,9 +646,6 @@ export class AuthService {
     });
   }
 
-  // ===================================
-  // CLEANUP
-  // ===================================
 
   ngOnDestroy(): void {
     this.stopRefreshTimer();

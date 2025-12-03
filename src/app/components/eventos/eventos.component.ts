@@ -15,6 +15,9 @@ export class EventosComponent implements OnInit {
   editingEvento: Evento | null = null;
   searchTerm = '';
   
+  isLoading = false;
+  isSaving = false;
+  
   constructor(
     private fb: FormBuilder,
     private eventosService: EventosService
@@ -24,8 +27,7 @@ export class EventosComponent implements OnInit {
       descricao: ['', [Validators.required]],
       dataInicio: ['', [Validators.required]],
       dataFim: ['', [Validators.required]],
-      desconto: ['', [Validators.min(0), Validators.max(100)]],
-      ativo: [true]
+      desconto: ['', [Validators.min(0), Validators.max(100)]]
     });
   }
 
@@ -34,14 +36,27 @@ export class EventosComponent implements OnInit {
   }
 
   loadEventos(): void {
-    this.eventosService.listarEventos().subscribe((res: any) => {
-      // o mock pode retornar um objeto paginado { content, totalElements }
-      if (res && Array.isArray(res.content)) {
-        this.eventos = res.content;
-      } else if (Array.isArray(res)) {
-        this.eventos = res as Evento[];
-      } else {
+    this.isLoading = true;
+    this.eventosService.listarEventos().subscribe({
+      next: (response: any) => {
+        console.log('📥 Resposta do backend:', response);
+        
+        if (Array.isArray(response)) {
+          this.eventos = response;
+        } else if (Array.isArray(response?.content)) {
+          this.eventos = response.content;
+        } else {
+          this.eventos = [];
+        }
+        
+        console.log('🔍 Primeiro evento (debug):', this.eventos[0]);
+        
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Erro ao carregar eventos:', error);
         this.eventos = [];
+        this.isLoading = false;
       }
     });
   }
@@ -52,13 +67,15 @@ export class EventosComponent implements OnInit {
     
     if (evento) {
       this.eventoForm.patchValue({
-        ...evento,
+        nome: evento.nome || '',
+        descricao: evento.descricao || '',
         dataInicio: evento.dataInicio ? this.formatDateForInput(evento.dataInicio) : '',
-        dataFim: evento.dataFim ? this.formatDateForInput(evento.dataFim) : ''
+        dataFim: evento.dataFim ? this.formatDateForInput(evento.dataFim) : '',
+        desconto: evento.descontoPercentual || ''
       });
     } else {
       this.eventoForm.reset();
-      this.eventoForm.patchValue({ ativo: true, desconto: '' });
+      this.eventoForm.patchValue({ desconto: '' });
     }
   }
 
@@ -70,34 +87,52 @@ export class EventosComponent implements OnInit {
 
   onSubmit(): void {
     if (this.eventoForm.valid) {
+      this.isSaving = true;
+      const formValue = this.eventoForm.value;
+      console.log('📝 Form values:', formValue);
+      
       const eventoData = {
-        ...this.eventoForm.value,
-        dataInicio: new Date(this.eventoForm.value.dataInicio),
-        dataFim: new Date(this.eventoForm.value.dataFim)
+        nome: formValue.nome,
+        descricao: formValue.descricao,
+        dataInicio: formValue.dataInicio ? formValue.dataInicio.split('T')[0] : null, // Remove hora, mantém apenas YYYY-MM-DD
+        dataFim: formValue.dataFim ? formValue.dataFim.split('T')[0] : null,         // Remove hora, mantém apenas YYYY-MM-DD
+        descontoPercentual: formValue.desconto ? Number(formValue.desconto) : undefined,
+        status: 'PLANEJADO'
       };
       
+      console.log('📤 Dados enviados:', eventoData);
+      
       if (this.editingEvento) {
-        // Atualizar evento
         this.eventosService.atualizarEvento(this.editingEvento.id!, eventoData).subscribe({
           next: () => {
             this.loadEventos();
             this.closeModal();
+            this.isSaving = false;
           },
           error: (error) => {
             console.error('Erro ao atualizar evento:', error);
             alert('Erro ao atualizar evento. Tente novamente.');
+            this.isSaving = false;
           }
         });
       } else {
-        // Criar novo evento
         this.eventosService.criarEvento(eventoData).subscribe({
           next: () => {
             this.loadEventos();
             this.closeModal();
+            this.isSaving = false;
           },
           error: (error) => {
             console.error('Erro ao criar evento:', error);
-            alert('Erro ao criar evento. Tente novamente.');
+            console.log('Detalhes do erro:', error.error);
+            if (error.error?.validationErrors) {
+              console.log('Erros de validação:', error.error.validationErrors);
+              const erros = Object.values(error.error.validationErrors).join('\n');
+              alert(`Erro de validação:\n${erros}`);
+            } else {
+              alert('Erro ao criar evento. Tente novamente.');
+            }
+            this.isSaving = false;
           }
         });
       }
@@ -106,11 +141,11 @@ export class EventosComponent implements OnInit {
 
   deleteEvento(id: number): void {
     if (confirm('Tem certeza que deseja excluir este evento?')) {
-      this.eventosService.excluirEvento(id).subscribe({
+      this.eventosService.deletarEvento(id).subscribe({
         next: () => {
           this.loadEventos();
         },
-        error: (error) => {
+        error: (error: any) => {
           console.error('Erro ao excluir evento:', error);
           alert('Erro ao excluir evento. Tente novamente.');
         }
@@ -119,19 +154,31 @@ export class EventosComponent implements OnInit {
   }
 
   toggleEvento(evento: Evento): void {
+    
     if (evento.id) {
-      const novoAtivo = !evento.ativo;
-      const novoStatusStr = novoAtivo ? 'CONFIRMADO' : 'CANCELADO';
-      this.eventosService.alterarStatusEvento(evento.id, novoStatusStr).subscribe({
-        next: (eventoAtualizado: any) => {
-          evento.ativo = eventoAtualizado.ativo !== undefined ? eventoAtualizado.ativo : (eventoAtualizado.status !== 'CANCELADO');
-          evento.status = eventoAtualizado.status || novoStatusStr;
-        },
-        error: (error) => {
-          console.error('Erro ao alterar status do evento:', error);
-          alert('Erro ao alterar status do evento. Tente novamente.');
-        }
-      });
+      if (evento.ativo) {
+        this.eventosService.deletarEvento(evento.id).subscribe({
+          next: () => {
+            this.loadEventos(); // Recarrega a lista
+          },
+          error: (error: any) => {
+            console.error('❌ Erro ao desativar evento:', error);
+            alert('Erro ao desativar evento. Tente novamente.');
+          }
+        });
+      } else {
+        this.eventosService.reativarEvento(evento.id).subscribe({
+          next: () => {
+            this.loadEventos(); // Recarrega a lista
+          },
+          error: (error: any) => {
+            console.error('❌ Erro ao reativar evento:', error);
+            alert('Erro ao reativar evento. Tente novamente.');
+          }
+        });
+      }
+    } else {
+      console.warn('⚠️ Evento sem ID válido:', evento);
     }
   }
 
@@ -142,6 +189,41 @@ export class EventosComponent implements OnInit {
         (evento.descricao && evento.descricao.toLowerCase().includes(this.searchTerm.toLowerCase()));
         
       return matchesSearch;
+    });
+  }
+
+  hasActiveFilters(): boolean {
+    return !!this.searchTerm;
+  }
+
+  isFilterActive(field: string): boolean {
+    switch (field) {
+      case 'search': return !!this.searchTerm;
+      default: return false;
+    }
+  }
+
+  limparFiltros(): void {
+    this.searchTerm = '';
+  }
+
+  isFieldInvalid(fieldName: string): boolean {
+    const field = this.eventoForm.get(fieldName);
+    return !!(field && field.invalid && (field.dirty || field.touched));
+  }
+
+  formatDateTime(dateValue: string): string {
+    if (!dateValue) return '';
+    
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return '';
+    
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
 

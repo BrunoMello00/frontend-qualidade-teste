@@ -32,27 +32,22 @@ export class NovaSenhaComponent implements OnInit {
   ngOnInit(): void {
     this.initializeForms();
     
-    // Verificar se veio do perfil através de query param
     this.route.queryParams.subscribe(params => {
       this.fromProfile = params['from'] === 'profile';
     });
     
-    // Verificar se o usuário está logado
     this.isUserLoggedIn = this.authService.isAuthenticated();
   }
 
   private initializeForms(): void {
-    // Formulário para validar código
     this.validarCodigoForm = this.fb.group({
       codigo: ['', [Validators.required, Validators.minLength(6)]]
     });
 
-    // Formulário para validar senha atual
     this.validarSenhaAtualForm = this.fb.group({
       senhaAtual: ['', [Validators.required]]
     });
 
-    // Formulário para nova senha
     this.novaSenhaForm = this.fb.group({
       novaSenha: ['', [Validators.required, Validators.minLength(6)]],
       confirmarSenha: ['', [Validators.required]]
@@ -69,7 +64,6 @@ export class NovaSenhaComponent implements OnInit {
     return null;
   }
 
-  // Validar senha atual para usuários logados
   validarSenhaAtual(): void {
     if (this.validarSenhaAtualForm.valid) {
       this.isLoading = true;
@@ -77,15 +71,12 @@ export class NovaSenhaComponent implements OnInit {
       
       const senhaAtual = this.validarSenhaAtualForm.get('senhaAtual')?.value;
       
-      // Simular validação da senha atual (em uma aplicação real, seria uma chamada para API)
       setTimeout(() => {
-        // Senha de exemplo válida: "admin123" (seria comparada com a senha do usuário atual)
         if (senhaAtual === 'admin123') {
           this.isLoading = false;
           this.senhaAtualValidada = true;
           this.successMessage = 'Senha atual confirmada! Agora defina sua nova senha.';
           
-          // Limpar mensagem após 3 segundos
           setTimeout(() => {
             this.successMessage = '';
           }, 3000);
@@ -99,7 +90,6 @@ export class NovaSenhaComponent implements OnInit {
     }
   }
 
-  // Validar código primeiro
   validarCodigo(): void {
     if (this.validarCodigoForm.valid) {
       this.isLoading = true;
@@ -107,15 +97,12 @@ export class NovaSenhaComponent implements OnInit {
       
       const codigo = this.validarCodigoForm.get('codigo')?.value;
       
-      // Simular validação do código (em uma aplicação real, seria uma chamada para API)
       setTimeout(() => {
-        // Código de exemplo válido: "123456"
         if (codigo === '123456') {
           this.isLoading = false;
           this.codigoValidado = true;
           this.successMessage = 'Código validado com sucesso! Agora defina sua nova senha.';
           
-          // Limpar mensagem após 3 segundos
           setTimeout(() => {
             this.successMessage = '';
           }, 3000);
@@ -147,10 +134,8 @@ export class NovaSenhaComponent implements OnInit {
           this.successMessage = 'Senha redefinida com sucesso! Redirecionando...';
           console.log('Senha redefinida com sucesso:', response);
           
-          // Enviar notificação por email sobre a mudança de senha
           this.enviarNotificacaoMudancaSenha();
           
-          // Redirecionar baseado no status de login ou origem
           setTimeout(() => {
             if (this.isUserLoggedIn || this.fromProfile) {
               this.router.navigate(['/perfil']);
@@ -171,7 +156,6 @@ export class NovaSenhaComponent implements OnInit {
   }
 
   private enviarNotificacaoMudancaSenha(): void {
-    // Obter dados do usuário (em um cenário real, seria obtido do contexto de autenticação)
     const dadosUsuario = {
       email: 'admin@admin.com', // Seria obtido do token ou contexto
       nome: 'Administrador'
@@ -183,7 +167,6 @@ export class NovaSenhaComponent implements OnInit {
       new Date()
     ).subscribe({
       next: (response) => {
-        console.log('✅ Notificação de mudança de senha enviada:', response);
         this.showToast('Email de confirmação enviado para ' + dadosUsuario.email, 'info');
       },
       error: (error) => {
@@ -261,7 +244,6 @@ export class NovaSenhaComponent implements OnInit {
       }
     }
 
-    // Verificar erro de senhas diferentes (apenas para o form de nova senha)
     if (fieldName === 'confirmarSenha' && this.novaSenhaForm.errors?.['senhasDiferentes']) {
       return 'Senhas não coincidem';
     }
@@ -269,17 +251,14 @@ export class NovaSenhaComponent implements OnInit {
     return '';
   }
 
-  // Método para obter erro do código
   getCodigoError(): string {
     return this.getFieldError('codigo', this.validarCodigoForm);
   }
 
-  // Método para obter erro da senha atual
   getSenhaAtualError(): string {
     return this.getFieldError('senhaAtual', this.validarSenhaAtualForm);
   }
 
-  // Voltar para primeira etapa
   voltarParaCodigo(): void {
     this.codigoValidado = false;
     this.senhaAtualValidada = false;
@@ -291,10 +270,8 @@ export class NovaSenhaComponent implements OnInit {
 
   voltarLogin(): void {
     if (this.isUserLoggedIn || this.fromProfile) {
-      // Se usuário está logado ou veio do perfil, voltar para o perfil
       this.router.navigate(['/perfil']);
     } else {
-      // Se não está logado, ir para login
       this.router.navigate(['/login']);
     }
   }

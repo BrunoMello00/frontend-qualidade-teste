@@ -13,6 +13,7 @@
             <p class="text-muted mb-0">Gerencie sua base de clientes e programa de fidelidade</p>
           </div>
           <button 
+            *ngIf="authService.canManageClients()"
             class="btn btn-primary" 
             (click)="openModal()">
             <i class="bi bi-plus-circle me-1"></i>
@@ -222,11 +223,36 @@
             
             <div class="col-12">
               <label class="form-label">Endereço *</label>
-              <input 
-                type="text" 
-                class="form-control"
-                formControlName="endereco"
-                placeholder="Endereço completo">
+              <div formGroupName="endereco" class="row g-2">
+                <div class="col-12 col-md-8">
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    formControlName="rua"
+                    placeholder="Rua/Avenida">
+                </div>
+                <div class="col-12 col-md-4">
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    formControlName="numero"
+                    placeholder="Número">
+                </div>
+                <div class="col-12 col-md-6">
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    formControlName="bairro"
+                    placeholder="Bairro">
+                </div>
+                <div class="col-12 col-md-6">
+                  <input 
+                    type="text" 
+                    class="form-control"
+                    formControlName="cidade"
+                    placeholder="Cidade">
+                </div>
+              </div>
             </div>
             
             <div class="col-12 col-md-6">

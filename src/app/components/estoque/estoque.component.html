@@ -106,19 +106,6 @@
         </div>
       </div>
 
-      <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card card-custom h-100 shadow-hover">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="card-title text-uppercase text-muted small fw-bold m-0">Valor Total</h6>
-              <i class="bi bi-currency-dollar stat-card-icon text-success"></i>
-            </div>
-            <div class="stat-card-value text-success">{{ formatarMoeda(stats.valorTotalEstoque) }}</div>
-            <div class="small text-muted">Valor em estoque</div>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- Formulário de Movimentação -->
@@ -142,10 +129,12 @@
                   <select 
                     class="form-select form-control-custom"
                     formControlName="produtoId"
+                    (change)="onProdutoChange()"
                     [class.is-invalid]="movimentacaoForm.get('produtoId')?.invalid && movimentacaoForm.get('produtoId')?.touched">
                     <option value="">Selecione um produto</option>
                     <option *ngFor="let produto of produtos" [value]="produto.id">
                       {{ produto.nome }} (Atual: {{ produto.quantidade }})
+                      <span *ngIf="produto.tamanhos && produto.tamanhos.length > 0"> - {{ produto.tamanhos.length }} tamanho(s)</span>
                     </option>
                   </select>
                   <div class="invalid-feedback">
@@ -172,21 +161,6 @@
                   </div>
                 </div>
 
-                <!-- Quantidade -->
-                <div class="col-12 col-md-6">
-                  <label class="form-label fw-semibold">Quantidade *</label>
-                  <input 
-                    type="number" 
-                    class="form-control form-control-custom"
-                    formControlName="quantidade"
-                    placeholder="Digite a quantidade"
-                    min="1"
-                    [class.is-invalid]="movimentacaoForm.get('quantidade')?.invalid && movimentacaoForm.get('quantidade')?.touched">
-                  <div class="invalid-feedback">
-                    {{ getErrorMessage('quantidade') }}
-                  </div>
-                </div>
-
                 <!-- Motivo -->
                 <div class="col-12 col-md-6">
                   <label class="form-label fw-semibold">Motivo *</label>
@@ -203,6 +177,123 @@
 
               </div>
 
+              <!-- Seção de Gestão de Tamanhos -->
+              <div *ngIf="showTamanhosSection" class="mt-4">
+                <div class="card border-info">
+                  <div class="card-header bg-light border-info">
+                    <h6 class="card-title mb-0">
+                      <i class="bi bi-rulers me-2 text-info"></i>
+                      Gestão por Tamanhos - {{ produtoSelecionado?.nome }}
+                    </h6>
+                    <small class="text-muted">
+                      Defina a quantidade para cada tamanho específico ou adicione novos tamanhos
+                    </small>
+                  </div>
+                  <div class="card-body">
+                    
+                    <!-- Lista de Tamanhos Existentes -->
+                    <div class="row g-3" *ngIf="tamanhosMovimentacao.length > 0">
+                      <div 
+                        *ngFor="let tamanho of tamanhosMovimentacao; let i = index; trackBy: trackByTamanho"
+                        class="col-12 col-md-6 col-lg-4">
+                        <div class="input-group">
+                          <span class="input-group-text" 
+                                [class.bg-success]="tamanho.isNew"
+                                [class.text-white]="tamanho.isNew"
+                                [title]="tamanho.isNew ? 'Novo tamanho' : 'Tamanho existente'">
+                            <i class="bi bi-tag me-1"></i>
+                            {{ tamanho.tamanho }}
+                          </span>
+                          <input 
+                            type="number" 
+                            class="form-control"
+                            [(ngModel)]="tamanho.quantidade"
+                            [ngModelOptions]="{standalone: true}"
+                            placeholder="Qtd"
+                            min="0"
+                            max="9999"
+                            (ngModelChange)="onQuantidadeChange($event, i)">
+                          <button 
+                            *ngIf="tamanho.isNew"
+                            type="button"
+                            class="btn btn-outline-danger btn-sm"
+                            (click)="removerTamanhoMovimentacao(i)"
+                            title="Remover tamanho">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Adicionar Novo Tamanho -->
+                    <div class="mt-3">
+                      <label class="form-label fw-semibold">
+                        <i class="bi bi-plus-circle me-1 text-success"></i>
+                        Adicionar Novo Tamanho
+                      </label>
+                      <div class="input-group">
+                        <span class="input-group-text">
+                          <i class="bi bi-tag"></i>
+                        </span>
+                        <input 
+                          type="text" 
+                          class="form-control"
+                          [(ngModel)]="novoTamanho"
+                          [ngModelOptions]="{standalone: true}"
+                          placeholder="Ex: GG, XGG, 46, 42..."
+                          maxlength="10">
+                        <button 
+                          type="button"
+                          class="btn btn-success"
+                          (click)="adicionarNovoTamanho()"
+                          [disabled]="!podeAdicionarTamanho()">
+                          <i class="bi bi-plus-circle me-1"></i>
+                          Adicionar
+                        </button>
+                      </div>
+                      <small class="text-muted mt-1 d-block">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Novos tamanhos serão criados automaticamente para este produto
+                      </small>
+                    </div>
+
+                    <!-- Resumo de Movimentação -->
+                    <div class="mt-3" *ngIf="getTamanhosComQuantidade().length > 0">
+                      <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                          <i class="bi bi-clipboard-check me-2"></i>
+                          Resumo da Movimentação
+                        </h6>
+                        <ul class="mb-0">
+                          <li *ngFor="let tamanho of getTamanhosComQuantidade()">
+                            <strong>{{ tamanho.tamanho }}</strong>: {{ tamanho.quantidade }} unidade(s)
+                            <span *ngIf="tamanho.isNew" class="badge bg-success ms-2">NOVO</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <!-- Campo Quantidade (apenas para produtos sem tamanhos) -->
+              <div *ngIf="!showTamanhosSection" class="mt-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold">Quantidade *</label>
+                  <input 
+                    type="number" 
+                    class="form-control form-control-custom"
+                    formControlName="quantidade"
+                    placeholder="Digite a quantidade"
+                    min="1"
+                    [class.is-invalid]="movimentacaoForm.get('quantidade')?.invalid && movimentacaoForm.get('quantidade')?.touched">
+                  <div class="invalid-feedback">
+                    {{ getErrorMessage('quantidade') }}
+                  </div>
+                </div>
+              </div>
+
               <!-- Botões -->
               <div class="d-flex gap-2 justify-content-end mt-4">
                 <button 
@@ -215,7 +306,7 @@
                 <button 
                   type="submit" 
                   class="btn btn-primary btn-custom"
-                  [disabled]="movimentacaoForm.invalid || isLoading">
+                  [disabled]="!isMovimentacaoValida() || isLoading || (movimentacaoForm.get('produtoId')?.invalid || movimentacaoForm.get('motivo')?.invalid)">
                   <div *ngIf="isLoading" class="d-flex align-items-center">
                     <div class="spinner-border spinner-border-sm me-2"></div>
                     <span>Processando...</span>
@@ -336,14 +427,19 @@
 
           <!-- Cards dos Produtos -->
           <div *ngFor="let produto of getFilteredProducts()" class="col-12 col-md-6 col-lg-4">
-            <div class="card card-custom h-100 shadow-hover">
+            <div class="card card-custom h-100 shadow-hover produto-card" 
+                 (click)="abrirMovimentacaoProduto(produto)"
+                 role="button"
+                 tabindex="0"
+                 title="Clique para registrar movimentação deste produto"
+                 [style.cursor]="'pointer'">
               <div class="card-body">
                 
                 <!-- Header do Card -->
                 <div class="d-flex justify-content-between align-items-start mb-3">
                   <div class="flex-grow-1">
                     <h6 class="card-title fw-bold mb-1">{{ produto.nome }}</h6>
-                    <span class="badge bg-light text-dark small">{{ produto.categoria }}</span>
+                    <span class="badge bg-light text-dark small">{{ getNomeDepartamento(produto.departamento) }}</span>
                   </div>
                   <span [class]="'badge ' + getStatusBadgeClass(produto)">
                     {{ getStatusText(produto) }}
@@ -367,40 +463,36 @@
                   
                   <div class="d-flex justify-content-between">
                     <span class="fw-bold fs-5">{{ produto.quantidade }}</span>
-                    <span class="text-success fw-semibold">{{ formatarMoeda(produto.preco) }}</span>
+                    <!-- Removido preço de venda -->
                   </div>
                 </div>
 
-                <!-- Valor Total -->
-                <div class="d-flex justify-content-between align-items-center">
-                  <small class="text-muted">Valor em estoque:</small>
-                  <span class="fw-bold text-success">
-                    {{ formatarMoeda((produto.quantidade || produto.estoque || 0) * produto.preco) }}
-                  </span>
+                <!-- Detalhes de Tamanhos se existirem -->
+                <div *ngIf="produto.tamanhos && produto.tamanhos.length > 0" class="mt-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted fw-bold">Estoque por Tamanho:</small>
+                  </div>
+                  <div class="row g-1">
+                    <div *ngFor="let tamanho of produto.tamanhos" class="col-4">
+                      <div class="text-center p-2 rounded"
+                           [class]="(tamanho.estoque || 0) > 0 ? 'bg-success bg-opacity-10 border border-success' : 'bg-light border'">
+                        <div class="fw-bold small">{{ tamanho.tamanho }}</div>
+                        <div [class]="(tamanho.estoque || 0) > 0 ? 'text-success fw-bold' : 'text-muted fw-bold'">
+                          {{ tamanho.estoque || 0 }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-              </div>
-
-              <!-- Footer com Ações -->
-              <div class="card-footer bg-light">
-                <div class="d-flex gap-2">
-                  <button 
-                    class="btn btn-outline-primary btn-sm flex-fill"
-                    (click)="entradaRapida(produto)"
-                    title="Adicionar produtos ao estoque">
-                    <i class="bi bi-plus-circle me-1"></i>
-                    Entrada
-                  </button>
-                  <button 
-                    class="btn btn-outline-danger btn-sm flex-fill"
-                    (click)="saidaRapida(produto)"
-                    title="Remover produtos do estoque">
-                    <i class="bi bi-dash-circle me-1"></i>
-                    Saída
-                  </button>
+                <!-- Produtos sem tamanhos - apenas informação básica -->
+                <div *ngIf="!produto.tamanhos || produto.tamanhos.length === 0" class="mt-2">
+                  <small class="text-muted">
+                    <i class="bi bi-box me-1"></i>
+                    Produto sem variações de tamanho
+                  </small>
                 </div>
               </div>
-
             </div>
           </div>
 

@@ -1,48 +1,13 @@
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, FormArray, AbstractControl } from '@angular/forms';
-import { VendaService } from '../../services/venda.service';
-import { ProdutoService } from '../../services/produto.service';
-import { EventosService, Evento } from '../../services/eventos.service';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { VendasService, VendaRequest, VendaResponse, EstatisticasVendasResponse, StatusVenda, FormaPagamento } from '../../services/vendas.service';
+import { ProdutoService, ProdutoResponse, TamanhoProduto } from '../../services/produto.service';
 import { ClienteService, Cliente } from '../../services/cliente.service';
+import { EventosService, Evento } from '../../services/eventos.service';
+import { AuthService } from '../../services/auth.service';
+import { DevolucaoService, DevolucaoRequest, ItemDevolucaoRequest } from '../../services/devolucao.service';
 
-interface Produto {
-  id: number;
-  nome: string;
-  preco: number;
-  quantidade: number;
-  categoria: string;
-  quantidadeMinima: number;
-}
 
-interface ItemVenda {
-  produtoId: number;
-  produtoNome: string;
-  quantidade: number;
-  precoUnitario: number;
-  desconto: number; // desconto específico para este item (valor em R$)
-  percentualDesconto: number; // percentual de desconto para este item
-  subtotal: number; // subtotal sem desconto
-  totalComDesconto: number; // total após aplicar desconto
-}
-
-interface Venda {
-  id?: number;
-  dataVenda: Date;
-  clienteId?: number; // ID do cliente (se cadastrado)
-  clienteNome: string;
-  clienteCpf: string; // CPF obrigatório (real ou fake)
-  clienteEmail?: string;
-  clienteTelefone?: string;
-  evento?: string; // Novo campo para evento/razão
-  itens: ItemVenda[];
-  subtotal: number;
-  desconto: number;
-  percentualDesconto: number; // Novo campo para percentual de desconto
-  total: number;
-  formaPagamento: string;
-  status: string;
-  observacoes?: string;
-}
 
 @Component({
   selector: 'app-vendas',
@@ -50,97 +15,98 @@ interface Venda {
   styleUrls: ['./vendas.component.css']
 })
 export class VendasComponent implements OnInit {
-  
-  // Estados
-  vendas: Venda[] = [];
-  produtos: Produto[] = [];
-  eventos: Evento[] = []; // Nova lista de eventos
+  vendaForm!: FormGroup;
+  clienteForm!: FormGroup;
+  vendas: VendaResponse[] = [];
+  produtos: ProdutoResponse[] = [];
+
   isLoading = false;
   showVendaForm = false;
+  showCadastroCliente = false;
+  buscandoCliente = false;
+  clienteAtual: Cliente | null = null;
+  clienteEncontrado = false;
+  showOpcoesCliente = false;
+
+  // Propriedades para devolução/troca
+  showModalDevolucao = false;
+  showModalTroca = false;
+  vendaSelecionada: VendaResponse | null = null;
+  devolucaoForm!: FormGroup;
+  itensSelecionadosDevolucao: { [itemId: number]: boolean } = {};
+  quantidadesDevolucao: { [itemId: number]: number } = {};
+  statusQualidadeItens: { [itemId: number]: string } = {};
+  descontoItens: { [itemId: number]: number } = {};
+
+  // Arrays para armazenar totais calculados e evitar loops infinitos
+  private totaisCalculados: number[] = [];
+  private subtotaisCalculados: number[] = [];
+
+  // mensagens
   errorMessage = '';
   successMessage = '';
 
-  // Estados para edição de venda
-  vendaEdicao: Venda | null = null;
-  itensEdicao: ItemVenda[] = [];
-  novoProdutoId: number = 0;
-  novaQuantidade: number = 1;
-
-  // ===== SISTEMA DE AUTOCOMPLETE =====
+  // auto-complete helpers
   produtoSearchTerms: { [key: number]: string } = {};
   showDropdown: { [key: number]: boolean } = {};
-  filteredProdutos: { [key: number]: Produto[] } = {};
+  filteredProdutos: { [key: number]: ProdutoResponse[] } = {};
 
-  // ===== SISTEMA DE CLIENTES =====
-  clienteAtual: Cliente | null = null;
-  showCadastroCliente = false;
-  cpfBusca = '';
-  clienteForm!: FormGroup;
-  buscandoCliente = false;
-  clienteEncontrado = false;
-  showOpcoesCliente = false; // Nova variável para controlar exibição das opções
-
-  // Formulários
-  vendaForm!: FormGroup;
-  searchForm!: FormGroup;
-
-  // Filtros
+  // filtros/pagination
+  searchTerm = '';
   dateFilter = '';
   statusFilter = '';
-  searchTerm = '';
-  clienteFilter = '';
-  eventoFilter = ''; // Novo filtro por evento
-  precoOrder = ''; // Filtro de ordem por preço (asc, desc)
-  orderByPrice = ''; // Ordenação por preço para o template
-  activeFilterBox = ''; // Para controlar qual box está ativo
-
-  // Paginação
+  eventoFilter = '';
+  orderByPrice = '';
+  activeFilterBox = '';
   currentPage = 1;
   itemsPerPage = 10;
+
   totalItems = 0;
 
-  // Estatísticas
-  stats = {
-    vendasHoje: 0,
-    faturamentoHoje: 0,
-    vendasMes: 0,
-    faturamentoMes: 0,
+  // estatísticas (forma simples, aceita ausência de campos)
+  stats: EstatisticasVendasResponse & {
+    vendasHoje?: number;
+    faturamentoHoje?: number;
+    vendasMes?: number;
+    faturamentoMes?: number;
+  } = {
+    totalVendas: 0,
+    totalFaturamento: 0,
     ticketMedio: 0,
-    vendasPendentes: 0
+    vendasPendentes: 0,
+    vendasConfirmadas: 0,
+    vendasCanceladas: 0
   };
 
-  // Opções
-  formasPagamento = [
-    'DINHEIRO',
-    'CARTAO_CREDITO',
-    'CARTAO_DEBITO',
-    'PIX',
-    'TRANSFERENCIA',
-    'BOLETO'
-  ];
+  formasPagamento = Object.values(FormaPagamento);
+  statusVenda = Object.values(StatusVenda);
 
-  statusVenda = [
-    'PENDENTE',
-    'CONFIRMADA',
-    'ENTREGUE',
-    'CANCELADA'
-  ];
+  cpfBusca = '';
+
+  eventos: Evento[] = [];
+  eventosAtivos: Evento[] = [];
+  eventoSelecionado: Evento | null = null;
+
+  // 🔧 Arrays de tamanhos para cada item
+  tamanhosDisponiveis: { [itemIndex: number]: TamanhoProduto[] } = {};
 
   constructor(
     private fb: FormBuilder,
-    private vendaService: VendaService,
+    private vendasService: VendasService,
     private produtoService: ProdutoService,
+    private clienteService: ClienteService,
     private eventosService: EventosService,
-    private clienteService: ClienteService
-  ) {
-    this.initializeForms();
-  }
+    private cdr: ChangeDetectorRef,
+    public authService: AuthService,
+    private devolucaoService: DevolucaoService
+  ) {}
 
   ngOnInit(): void {
-    this.loadVendas();
+    this.initializeForms();
     this.loadProdutos();
-    this.loadEventos(); // Carregar eventos
+    this.loadVendas();
     this.loadStats();
+    this.carregarEventosAtivos();
   }
 
   initializeForms(): void {
@@ -148,35 +114,25 @@ export class VendasComponent implements OnInit {
       clienteNome: ['', [Validators.required, Validators.minLength(2)]],
       clienteEmail: ['', [Validators.email]],
       clienteTelefone: [''],
-      evento: [''], // Novo campo para evento/razão
-      formaPagamento: ['DINHEIRO', Validators.required],
-      pagamentoParcelado: [false], // Novo campo para indicar se é parcelado
-      numeroParcelas: [1, [Validators.min(1), Validators.max(12)]], // Novo campo para número de parcelas
-      jurosPercentual: ['', [Validators.min(0), Validators.max(100)]], // Novo campo para juros
-      desconto: ['', [Validators.min(0)]],
-      // Percentual de desconto começa vazio para melhor UX
-      percentualDesconto: ['', [Validators.min(0), Validators.max(100)]], // Campo começa vazio
+      evento: [''],
+      eventoId: [''],
+      formaPagamento: [FormaPagamento.DINHEIRO, Validators.required],
+      pagamentoParcelado: [false],
+      numeroParcelas: [1, [Validators.min(1), Validators.max(12)]],
+      jurosPercentual: [0],
+      percentualDesconto: [0],
+      desconto: [0],
       observacoes: [''],
-      itens: this.fb.array([])
+      itens: this.fb.array([this.createItemFormGroup()])
     });
 
-    this.searchForm = this.fb.group({
-      termo: [''],
-      dataInicio: [''],
-      dataFim: [''],
-      status: [''],
-      cliente: [''],
-      evento: [''] // Novo filtro por evento
-    });
-
-    // Formulário do cliente para cadastro durante a venda
     this.clienteForm = this.fb.group({
       nome: ['', [Validators.required, Validators.minLength(2)]],
+      cpf: ['', [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
-      telefone: ['', [Validators.required, Validators.pattern(/^\(\d{2}\) \d{4,5}-\d{4}$/)]],
-      cpf: ['', [Validators.required, this.cpfValidator]],
+      telefone: ['', [Validators.required]],
       endereco: this.fb.group({
-        cep: ['', [Validators.required, Validators.pattern(/^\d{5}-\d{3}$/)]],
+        cep: ['', Validators.required],
         rua: ['', Validators.required],
         numero: ['', Validators.required],
         complemento: [''],
@@ -186,2059 +142,1226 @@ export class VendasComponent implements OnInit {
       })
     });
 
-    // Adicionar primeiro item vazio
-    this.addItem();
+    this.devolucaoForm = this.fb.group({
+      tipoDevolucao: ['', Validators.required],
+      motivo: ['', Validators.required],
+      observacoes: ['']
+    });
+  }
+
+  createItemFormGroup(): FormGroup {
+    return this.fb.group({
+      produtoId: ['', Validators.required],
+      produtoNome: [''], // 🆕 Campo para exibir o nome do produto
+      quantidade: [1, [Validators.required, Validators.min(1)]],
+      precoUnitario: [0, [Validators.required, Validators.min(0.01)]],
+      subtotal: [{ value: 0, disabled: true }],
+      percentualDesconto: [0],
+      totalComDesconto: [{ value: 0, disabled: true }],
+      tamanhoSelecionado: [''], // 🆕 Campo para tamanho selecionado
+      tamanhosDisponiveis: [[]], // 🆕 Array de tamanhos disponíveis
+      temTamanhos: [false] // 🆕 Flag para indicar se produto tem tamanhos
+    });
   }
 
   get itensFormArray(): FormArray {
     return this.vendaForm.get('itens') as FormArray;
   }
 
-  createItemFormGroup(): FormGroup {
-    return this.fb.group({
-      produtoId: ['', Validators.required],
-      // Prevenção de quantidades negativas ou zero: min(1)
-      quantidade: ['', [Validators.required, Validators.min(1)]],
-      // Prevenção de preços negativos ou zero: min(0.01)
-      precoUnitario: ['', [Validators.required, Validators.min(0.01)]],
-      subtotal: [{ value: '', disabled: true }],
-      desconto: [{ value: '', disabled: true }],
-      // Desconto não pode ser negativo ou maior que 100%
-      percentualDesconto: ['', [Validators.min(0), Validators.max(100)]],
-      totalComDesconto: [{ value: '', disabled: true }]
-    });
-  }
-
   addItem(): void {
     const newIndex = this.itensFormArray.length;
     this.itensFormArray.push(this.createItemFormGroup());
     
-    // Inicializar valores do autocomplete para o novo item
+    // 🔧 COMPORTAMENTO COMO SELECT NATIVO: Novo item sempre fechado
     this.produtoSearchTerms[newIndex] = '';
-    this.showDropdown[newIndex] = false;
+    this.showDropdown[newIndex] = false; // SEMPRE FECHADO como select nativo
     this.filteredProdutos[newIndex] = [...this.produtos];
+    
+    // Inicializar arrays de totais para o novo item
+    this.totaisCalculados[newIndex] = 0;
+    this.subtotaisCalculados[newIndex] = 0;
+    
+    console.log(`🔧 Novo item adicionado (como select nativo) - index: ${newIndex}, dropdown FECHADO`);
   }
 
   removeItem(index: number): void {
     if (this.itensFormArray.length > 1) {
       this.itensFormArray.removeAt(index);
-      
-      // Limpar dados do autocomplete para o item removido
       delete this.produtoSearchTerms[index];
       delete this.showDropdown[index];
       delete this.filteredProdutos[index];
       
-      // Reorganizar índices dos itens restantes
-      const maxIndex = this.itensFormArray.length;
-      for (let i = index; i < maxIndex; i++) {
-        if (this.produtoSearchTerms[i + 1] !== undefined) {
-          this.produtoSearchTerms[i] = this.produtoSearchTerms[i + 1];
-          this.showDropdown[i] = this.showDropdown[i + 1];
-          this.filteredProdutos[i] = this.filteredProdutos[i + 1];
-          
-          delete this.produtoSearchTerms[i + 1];
-          delete this.showDropdown[i + 1];
-          delete this.filteredProdutos[i + 1];
-        }
-      }
-      
-      this.calculateTotal();
+      // Remover totais dos arrays
+      this.totaisCalculados.splice(index, 1);
+      this.subtotaisCalculados.splice(index, 1);
     }
   }
 
-  onProdutoChange(index: number): void {
-    const item = this.itensFormArray.at(index);
-    const produtoId = item.get('produtoId')?.value;
-    
-    if (produtoId) {
-      const produto = this.produtos.find(p => p.id == produtoId);
-      if (produto) {
-        item.patchValue({
-          precoUnitario: produto.preco
+  loadProdutos(): void {
+    this.produtoService.listarProdutos().subscribe({
+      next: (resp) => {
+        console.log('🛍️ Produtos carregados:', resp); // Debug
+        console.log('🛍️ Produtos recebidos:', resp.content?.length || 0);
+        const todosProdutos = (resp.content || []) as ProdutoResponse[];
+        
+        // 🔍 Debug - verificar se nomes estão chegando
+        todosProdutos.slice(0, 3).forEach((prod, idx) => {
+          console.log(`🛍️ Produto ${idx + 1}:`, {
+            id: prod.id,
+            nome: prod.nome,
+            departamento: prod.departamento,
+            preco: prod.preco,
+            estoque: prod.quantidadeEstoque || prod.estoque
+          });
         });
-        this.calculateItemSubtotal(index);
-      }
-    }
-  }
-
-  onQuantidadeChange(index: number): void {
-    const item = this.itensFormArray.at(index);
-    const quantidade = item.get('quantidade')?.value || 0;
-    
-    // Validação: quantidade deve ser pelo menos 1
-    if (quantidade < 1) {
-      item.patchValue({ quantidade: 1 });
-      this.errorMessage = 'Quantidade deve ser pelo menos 1 unidade';
-      setTimeout(() => this.clearMessages(), 3000);
-      return;
-    }
-    
-    this.calculateItemSubtotal(index);
-  }
-
-  onPrecoChange(index: number): void {
-    const item = this.itensFormArray.at(index);
-    const preco = item.get('precoUnitario')?.value || 0;
-    
-    // Validação: preço deve ser maior que R$ 0,00
-    if (preco <= 0) {
-      item.patchValue({ precoUnitario: 0.01 });
-      this.errorMessage = 'Preço deve ser maior que R$ 0,00';
-      setTimeout(() => this.clearMessages(), 3000);
-      return;
-    }
-    
-    this.calculateItemSubtotal(index);
-  }
-
-  // ===== MÉTODOS DE AUTOCOMPLETE =====
-  
-  onProdutoFocus(index: number): void {
-    // Ao focar no campo, mostrar todas as opções disponíveis
-    this.showDropdown[index] = true;
-    this.filteredProdutos[index] = this.produtos; // Mostrar todos os produtos inicialmente
-  }
-  
-  onProdutoSearch(index: number, event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const searchTerm = target.value.toLowerCase();
-    this.produtoSearchTerms[index] = searchTerm;
-    this.showDropdown[index] = true;
-    
-    // Se não há termo de busca, mostrar todos os produtos
-    if (!searchTerm || searchTerm.trim() === '') {
-      this.filteredProdutos[index] = this.produtos;
-    } else {
-      // Filtrar produtos baseado no termo de busca (nome, categoria)
-      this.filteredProdutos[index] = this.produtos.filter(produto =>
-        produto.nome.toLowerCase().includes(searchTerm) ||
-        produto.categoria.toLowerCase().includes(searchTerm) ||
-        produto.id.toString().includes(searchTerm)
-      );
-    }
-  }
-
-  onProdutoBlur(index: number): void {
-    // Delay para permitir clique no dropdown
-    setTimeout(() => {
-      this.showDropdown[index] = false;
-    }, 200);
-  }
-
-  getFilteredProdutos(index: number): Produto[] {
-    // Se não há produtos filtrados para este índice, retornar todos os produtos
-    if (!this.filteredProdutos[index]) {
-      this.filteredProdutos[index] = this.produtos;
-    }
-    return this.filteredProdutos[index];
-  }
-
-  getProdutoNome(index: number): string {
-    const item = this.itensFormArray.at(index);
-    const produtoId = item.get('produtoId')?.value;
-    
-    if (produtoId) {
-      const produto = this.produtos.find(p => p.id == produtoId);
-      return produto ? produto.nome : '';
-    }
-    
-    return this.produtoSearchTerms[index] || '';
-  }
-
-  selectProduto(index: number, produto: Produto): void {
-    const item = this.itensFormArray.at(index);
-    
-    // Definir o produto selecionado
-    item.patchValue({
-      produtoId: produto.id,
-      precoUnitario: produto.preco
-    });
-    
-    // Limpar busca e fechar dropdown
-    this.produtoSearchTerms[index] = produto.nome;
-    this.showDropdown[index] = false;
-    
-    // Calcular subtotal
-    this.calculateItemSubtotal(index);
-    
-    // Chamar o método original de mudança de produto
-    this.onProdutoChange(index);
-  }
-
-  calculateItemSubtotal(index: number): void {
-    const item = this.itensFormArray.at(index);
-    const quantidade = item.get('quantidade')?.value || 0;
-    const precoUnitario = item.get('precoUnitario')?.value || 0;
-    const subtotal = quantidade * precoUnitario;
-    const percentualDesconto = item.get('percentualDesconto')?.value || 0;
-    const desconto = (subtotal * percentualDesconto) / 100;
-    const totalComDesconto = subtotal - desconto;
-    
-    item.patchValue({
-      subtotal: subtotal,
-      desconto: desconto,
-      totalComDesconto: totalComDesconto
-    });
-    
-    this.calculateTotal();
-  }
-
-  calculateTotal(): void {
-    let subtotalOriginal = 0; // Valor sem descontos
-    let subtotalComDescontoItens = 0; // Valor já com descontos por item
-    
-    this.itensFormArray.controls.forEach(item => {
-      subtotalOriginal += item.get('subtotal')?.value || 0;
-      subtotalComDescontoItens += item.get('totalComDesconto')?.value || 0;
-    });
-    
-    // Debug - vamos verificar os valores
-    console.log('DEBUG - Subtotal Original:', subtotalOriginal);
-    console.log('DEBUG - Subtotal Com Desconto Itens:', subtotalComDescontoItens);
-    
-    // CORREÇÃO: Desconto geral da venda é aplicado sobre o valor já com descontos por item
-    const descontoGeral = this.vendaForm.get('desconto')?.value || 0;
-    const total = subtotalComDescontoItens - descontoGeral;
-    
-    console.log('DEBUG - Desconto Geral:', descontoGeral);
-    console.log('DEBUG - Total Final:', total);
-    
-    // CORREÇÃO: Atualizar o formulário com os valores corretos
-    this.vendaForm.patchValue({
-      subtotal: subtotalOriginal, // Mantém o valor original para referência
-      total: total // Total já corrigido
-    }, { emitEvent: false }); // emitEvent: false evita loops infinitos
-  }
-
-  // Método para calcular desconto por percentual
-  onPercentualDescontoChange(): void {
-    const percentualValue = this.vendaForm.get('percentualDesconto')?.value;
-    
-    // Se campo estiver vazio, não aplicar desconto
-    if (percentualValue === '' || percentualValue === null || percentualValue === undefined) {
-      this.vendaForm.patchValue({
-        desconto: 0
-      });
-      this.calculateTotal();
-      return;
-    }
-    
-    const percentual = parseFloat(percentualValue) || 0;
-    
-    // Validação: percentual deve estar entre 0 e 100
-    if (percentual < 0) {
-      this.vendaForm.patchValue({ percentualDesconto: '' });
-      this.errorMessage = 'Desconto não pode ser negativo';
-      setTimeout(() => this.clearMessages(), 3000);
-      return;
-    }
-    if (percentual > 100) {
-      this.vendaForm.patchValue({ percentualDesconto: 100 });
-      this.errorMessage = 'Desconto não pode ser maior que 100%';
-      setTimeout(() => this.clearMessages(), 3000);
-      return;
-    }
-    
-    // Aplica desconto sobre o subtotal que já tem descontos por item
-    const subtotalComDescontoItens = this.getSubtotalComDescontoItens();
-    const desconto = (subtotalComDescontoItens * percentual) / 100;
-    
-    this.vendaForm.patchValue({
-      desconto: desconto
-    });
-    
-    this.calculateTotal();
-  }
-
-  // ===== MÉTODOS DE PARCELAMENTO =====
-  
-  onFormaPagamentoChange(): void {
-    const formaPagamento = this.vendaForm.get('formaPagamento')?.value;
-    
-    if (formaPagamento !== 'CARTAO_CREDITO') {
-      // Se não for cartão de crédito, resetar campos de parcelamento
-      this.vendaForm.patchValue({
-        pagamentoParcelado: false,
-        numeroParcelas: 1,
-        jurosPercentual: 0
-      });
-    }
-    
-    this.calculateTotal();
-  }
-
-  onParcelamentoChange(): void {
-    const isParcelado = this.vendaForm.get('pagamentoParcelado')?.value;
-    
-    if (!isParcelado) {
-      // Se não for parcelado, resetar campos relacionados
-      this.vendaForm.patchValue({
-        numeroParcelas: 1,
-        jurosPercentual: 0
-      });
-    } else {
-      // Se for parcelado, definir valor padrão de 2 parcelas
-      this.vendaForm.patchValue({
-        numeroParcelas: 2
-      });
-    }
-    
-    this.calculateTotal();
-  }
-
-  onJurosChange(): void {
-    this.calculateTotal();
-  }
-
-  isCartaoCredito(): boolean {
-    return this.vendaForm.get('formaPagamento')?.value === 'CARTAO_CREDITO';
-  }
-
-  isParcelado(): boolean {
-    return this.vendaForm.get('pagamentoParcelado')?.value === true;
-  }
-
-  getValorComJuros(): number {
-    const total = this.getTotal();
-    const jurosPercentual = this.vendaForm.get('jurosPercentual')?.value || 0;
-    return total + (total * jurosPercentual / 100);
-  }
-
-  getValorParcela(): number {
-    const numeroParcelas = this.vendaForm.get('numeroParcelas')?.value || 1;
-    return this.getValorComJuros() / numeroParcelas;
-  }
-
-  getSubtotal(): number {
-    let subtotal = 0;
-    this.itensFormArray.controls.forEach(item => {
-      subtotal += item.get('subtotal')?.value || 0;
-    });
-    return subtotal;
-  }
-
-  // Novo método para obter subtotal já com descontos por item
-  getSubtotalComDescontoItens(): number {
-    let subtotal = 0;
-    this.itensFormArray.controls.forEach(item => {
-      subtotal += item.get('totalComDesconto')?.value || 0;
-    });
-    return subtotal;
-  }
-
-  getTotal(): number {
-    // CORREÇÃO: O total deve ser baseado no valor já com descontos por item
-    const subtotalComDescontoItens = this.getSubtotalComDescontoItens();
-    const desconto = this.vendaForm.get('desconto')?.value || 0;
-    return Math.max(0, subtotalComDescontoItens - desconto);
-  }
-
-  getTotalFinal(): number {
-    // Total final incluindo juros (se houver)
-    const total = this.getTotal();
-    const jurosPercentual = this.vendaForm.get('jurosPercentual')?.value || 0;
-    return total + (total * jurosPercentual / 100);
-  }
-
-  // ===== VALIDADOR DE CPF =====
-  cpfValidator(control: AbstractControl): {[key: string]: any} | null {
-    const cpf = control.value;
-    if (!cpf) return null;
-    
-    // Remove pontos e hífens
-    const numbers = cpf.replace(/\D/g, '');
-    
-    // Verifica se tem 11 dígitos
-    if (numbers.length !== 11) return { cpfInvalido: true };
-    
-    // Verifica se não são todos números iguais
-    if (/^(\d)\1{10}$/.test(numbers)) return { cpfInvalido: true };
-    
-    // Valida primeiro dígito verificador
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(numbers[i]) * (10 - i);
-    }
-    let digit1 = 11 - (sum % 11);
-    if (digit1 >= 10) digit1 = 0;
-    
-    if (digit1 !== parseInt(numbers[9])) return { cpfInvalido: true };
-    
-    // Valida segundo dígito verificador
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(numbers[i]) * (11 - i);
-    }
-    let digit2 = 11 - (sum % 11);
-    if (digit2 >= 10) digit2 = 0;
-    
-    if (digit2 !== parseInt(numbers[10])) return { cpfInvalido: true };
-    
-    return null;
-  }
-
-  // ===== MÉTODOS DE CARREGAMENTO =====
-
-  async loadVendas(): Promise<void> {
-    try {
-      this.isLoading = true;
-      
-      // TODO: Carregar vendas reais do backend
-      this.vendaService.obterVendasRecentes(50).subscribe({
-        next: (vendas) => {
-          // Converter vendas do service para o formato local
-          this.vendas = (vendas || []).map((venda: any) => ({
-            id: venda.id,
-            // Converter strings para Date quando necessário
-            dataVenda: (typeof venda.dataVenda === 'string') ? new Date(venda.dataVenda) : (venda.dataVenda || new Date()),
-            clienteId: (venda as any).clienteId || null,
-            clienteNome: venda.clienteNome || 'Cliente Avulso',
-            clienteCpf: venda.clienteCpf || '000.000.000-00',
-            clienteEmail: venda.clienteEmail,
-            clienteTelefone: venda.clienteTelefone,
-            evento: venda.evento || '',
-            itens: (venda.itens || []).map((item: any) => ({
-              produtoId: item.produtoId,
-              produtoNome: (item.produto && item.produto.nome) || item.nomeProduto || 'Produto',
-              quantidade: item.quantidade,
-              precoUnitario: item.precoUnitario,
-              desconto: item.descontoItem !== undefined ? item.descontoItem : (item.desconto || 0),
-              percentualDesconto: item.percentualDesconto !== undefined ? item.percentualDesconto : 0,
-              subtotal: (item.quantidade || 0) * (item.precoUnitario || 0),
-              totalComDesconto: ((item.quantidade || 0) * (item.precoUnitario || 0)) - (item.descontoItem !== undefined ? item.descontoItem : (item.desconto || 0))
-            })),
-            // suportar tanto 'valorTotal' (mock) quanto 'total' (service)
-            subtotal: (venda as any).valorTotal || venda.subtotal || 0,
-            desconto: venda.desconto || 0,
-            percentualDesconto: venda.percentualDesconto || 0,
-            total: (venda as any).valorTotal || venda.total || 0,
-            formaPagamento: venda.formaPagamento || 'Dinheiro',
-            status: venda.status || 'Finalizada',
-            observacoes: venda.observacoes
-          }));
-          this.totalItems = this.vendas.length;
-          console.log('✅ Vendas carregadas:', this.vendas.length);
-          this.isLoading = false;
-        },
-        error: (error: any) => {
-          console.error('❌ Erro ao carregar vendas:', error);
-          this.vendas = [];
-          this.totalItems = 0;
-          this.errorMessage = 'Erro ao carregar vendas';
-          this.isLoading = false;
-        }
-      });
-      
-    } catch (error) {
-      this.errorMessage = 'Erro ao carregar vendas';
-      console.error('Erro:', error);
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  async loadProdutos(): Promise<void> {
-    try {
-      // TODO: Carregar produtos reais do backend
-      this.produtoService.listarProdutos().subscribe({
-        next: (produtos) => {
-          // Converter produtos do service para o formato local
-          this.produtos = (produtos || []).map(produto => ({
-            id: produto.id || 0,
-            nome: produto.nome,
-            preco: produto.preco,
-            quantidade: produto.quantidade || produto.estoque || 0,
-            categoria: produto.categoria || 'Sem categoria',
-            quantidadeMinima: produto.quantidadeMinima || produto.estoqueMinimo || 0
-          }));
-          console.log('✅ Produtos carregados:', this.produtos.length);
-        },
-        error: (error: any) => {
-          console.error('❌ Erro ao carregar produtos:', error);
-          this.produtos = [];
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-    }
-  }
-
-  async loadEventos(): Promise<void> {
-    try {
-      this.eventosService.listarEventos().subscribe({
-        next: (eventos) => {
-          this.eventos = eventos || [];
-          console.log('✅ Eventos carregados:', this.eventos.length);
-        },
-        error: (error: any) => {
-          console.error('❌ Erro ao carregar eventos:', error);
-          this.eventos = [];
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
-    }
-  }
-
-  async loadStats(): Promise<void> {
-    try {
-      // TODO: Carregar estatísticas reais do backend
-      this.vendaService.obterEstatisticasVendas().subscribe({
-        next: (stats) => {
-          this.stats = {
-            vendasHoje: stats.vendasDia || 0,
-            faturamentoHoje: stats.faturamentoDia || 0,
-            vendasMes: stats.vendasMes || 0,
-            faturamentoMes: stats.faturamentoMes || 0,
-            ticketMedio: stats.ticketMedio || 0,
-            vendasPendentes: 0 // TODO: implementar no backend
-          };
-          console.log('✅ Estatísticas carregadas:', this.stats);
-        },
-        error: (error: any) => {
-          console.error('❌ Erro ao carregar estatísticas:', error);
-          this.stats = {
-            vendasHoje: 0,
-            faturamentoHoje: 0,
-            vendasMes: 0,
-            faturamentoMes: 0,
-            ticketMedio: 0,
-            vendasPendentes: 0
-          };
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
-    }
-  }
-
-  async onSubmitVenda(): Promise<void> {
-    if (this.vendaForm.valid && this.itensFormArray.length > 0) {
-      try {
-        this.isLoading = true;
         
-        const vendaData = {
-          ...this.vendaForm.value,
-          dataVenda: new Date(),
-          subtotal: this.getSubtotal(),
-          total: this.getTotal(),
-          status: 'PENDENTE',
-          clienteId: this.clienteAtual?.id || null,
-          clienteCpf: this.clienteAtual?.cpf || this.cpfBusca || null
-        };
-        
-        // Salvar venda no backend
-        this.vendaService.criarVenda(vendaData).subscribe({
-          next: (vendaCriada) => {
-            this.successMessage = 'Venda registrada com sucesso!';
-            
-            // Se cliente foi identificado (não é CPF fake), registrar a compra para fidelidade
-            if (this.clienteAtual && this.clienteAtual.cpf !== '000.000.000-00') {
-              this.successMessage += ` Pontos adicionados para ${this.clienteAtual.nome}.`;
-              // TODO: Implementar sistema de fidelidade no backend real
-              console.log('⚠️ Sistema de fidelidade precisa ser implementado no backend');
-            }
-            
-            this.resetVendaForm();
-              this.loadVendas();
-              this.loadStats();
-              // Recarregar lista de produtos para refletir alterações de estoque feitas pela venda (mock)
-              try {
-                this.loadProdutos();
-              } catch (e) {
-                // ignore
-              }
-            this.isLoading = false;
-          },
-          error: (error: any) => {
-            console.error('❌ Erro ao registrar venda:', error);
-            this.errorMessage = 'Erro ao registrar venda';
-            this.isLoading = false;
+        // 🔍 Filtrar apenas produtos com estoque disponível
+        this.produtos = todosProdutos.filter(produto => {
+          if (produto.tamanhos && produto.tamanhos.length > 0) {
+            return produto.tamanhos.some(tamanho => (tamanho.estoque || 0) > 0);
           }
+          const estoque = produto.estoque || produto.quantidadeEstoque || 0;
+          return estoque > 0;
         });
         
-      } catch (error) {
-        this.errorMessage = 'Erro ao registrar venda';
-        console.error('Erro:', error);
-      } finally {
+        console.log(`🔍 Produtos filtrados: ${this.produtos.length} de ${todosProdutos.length} produtos têm estoque`);
+        console.log('🔍 Primeiros produtos filtrados:', this.produtos.slice(0, 3).map(p => ({ nome: p.nome, id: p.id })));
+        this.filteredProdutos = {};
+        for (let i = 0; i < this.itensFormArray.length; i++) {
+          this.filteredProdutos[i] = [...this.produtos];
+        }
+      },
+      error: (err) => console.error('Erro ao carregar produtos:', err)
+    });
+  }
+
+  loadVendas(page: number = 0, size: number = 50): void {
+    this.isLoading = true;
+    this.vendasService.listarVendas({}, page, size).subscribe({
+      next: (resp) => {
+        this.vendas = resp.content || [];
+        this.totalItems = resp.totalElements || this.vendas.length;
+        this.isLoading = false;
+      },
+      error: (err) => {
+        console.error('Erro ao carregar vendas:', err);
         this.isLoading = false;
       }
-    } else {
-      this.markFormGroupTouched(this.vendaForm);
-    }
-  }
-
-  resetVendaForm(): void {
-    this.vendaForm.reset();
-    this.vendaForm.patchValue({
-      formaPagamento: 'DINHEIRO',
-      desconto: 0
     });
-    
-    // Limpar dados do cliente
-    this.limparCliente();
-    
-    // Limpar array de itens
-    while (this.itensFormArray.length > 1) {
-      this.itensFormArray.removeAt(1);
-    }
-    
-    // Reset primeiro item
-    this.itensFormArray.at(0).reset();
-    this.showVendaForm = false;
   }
 
-  toggleVendaForm(): void {
-    this.showVendaForm = !this.showVendaForm;
-    if (!this.showVendaForm) {
-      this.resetVendaForm();
-    }
-  }
-
-  getFilteredVendas(): Venda[] {
-    let filtered = [...this.vendas];
-
-    if (this.searchTerm) {
-      filtered = filtered.filter(venda => 
-        venda.clienteNome.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        venda.id?.toString().includes(this.searchTerm)
-      );
-    }
-
-    if (this.statusFilter) {
-      filtered = filtered.filter(venda => venda.status === this.statusFilter);
-    }
-
-    if (this.eventoFilter) {
-      filtered = filtered.filter(venda => venda.evento === this.eventoFilter);
-    }
-
-    if (this.dateFilter) {
-      const today = new Date();
-      filtered = filtered.filter(venda => {
-        const vendaDate = new Date(venda.dataVenda);
-        switch (this.dateFilter) {
-          case 'hoje':
-            return vendaDate.toDateString() === today.toDateString();
-          case 'semana':
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return vendaDate >= weekAgo;
-          case 'mes':
-            return vendaDate.getMonth() === today.getMonth() && 
-                   vendaDate.getFullYear() === today.getFullYear();
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Ordenação por preço
-    if (this.orderByPrice) {
-      filtered.sort((a, b) => {
-        if (this.orderByPrice === 'asc') {
-          return a.total - b.total;
-        } else if (this.orderByPrice === 'desc') {
-          return b.total - a.total;
-        }
-        return 0;
-      });
-    }
-
-    return filtered;
-  }
-
-  limparFiltros(): void {
-    this.searchTerm = '';
-    this.dateFilter = '';
-    this.statusFilter = '';
-    this.eventoFilter = '';
-    this.orderByPrice = '';
-    this.activeFilterBox = '';
-    this.currentPage = 1;
-  }
-
-  getPaginatedVendas(): Venda[] {
-    const filtered = this.getFilteredVendas();
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    return filtered.slice(startIndex, startIndex + this.itemsPerPage);
-  }
-
-  getTotalPages(): number {
-    return Math.ceil(this.getFilteredVendas().length / this.itemsPerPage);
-  }
-
-  goToPage(page: number): void {
-    this.currentPage = page;
-  }
-
-  formatarMoeda(valor: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor);
-  }
-
-  formatarData(data: Date): string {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(data));
-  }
-
-  // ===== MÉTODOS DE CLIENTE =====
-  
-  onCpfFocus(): void {
-    // Mostrar opções de cliente ao focar no campo CPF
-    this.showOpcoesCliente = true;
-  }
-  
-  async buscarClientePorCpf(): Promise<void> {
-    if (!this.cpfBusca || this.cpfBusca.trim() === '') {
-      this.clienteAtual = null;
-      this.clienteEncontrado = false;
-      return;
-    }
-
-    // Permitir CPF fake para vendas sem cadastro
-    if (this.cpfBusca === '000.000.000-00') {
-      this.clienteAtual = {
-        id: 0,
-        nome: 'Cliente não identificado',
-        email: '',
-        telefone: '',
-        cpf: '000.000.000-00',
-        endereco: '',
-        dataCadastro: new Date().toISOString(),
-        ativo: true,
-        pontos: 0
-      };
-      this.clienteEncontrado = true;
-      this.preencherDadosCliente();
-      return;
-    }
-
-    this.buscandoCliente = true;
-    try {
-      this.clienteService.buscarPorCpf(this.cpfBusca).subscribe({
-        next: (cliente) => {
-          if (cliente) {
-            this.clienteAtual = cliente;
-            this.clienteEncontrado = true;
-            this.preencherDadosCliente();
-            this.successMessage = `Cliente encontrado: ${cliente.nome}`;
-          } else {
-            this.clienteAtual = null;
-            this.clienteEncontrado = false;
-            this.errorMessage = 'Cliente não encontrado. Deseja cadastrar um novo cliente?';
-          }
-          this.buscandoCliente = false;
-        },
-        error: (error: any) => {
-          this.errorMessage = 'Erro ao buscar cliente.';
-          this.clienteAtual = null;
-          this.clienteEncontrado = false;
-          this.buscandoCliente = false;
-        }
-      });
-    } catch (error) {
-      this.errorMessage = 'Erro ao buscar cliente.';
-      this.clienteAtual = null;
-      this.clienteEncontrado = false;
-      this.buscandoCliente = false;
-    }
-  }
-
-  preencherDadosCliente(): void {
-    if (this.clienteAtual) {
-      this.vendaForm.patchValue({
-        clienteNome: this.clienteAtual.nome,
-        clienteEmail: this.clienteAtual.email,
-        clienteTelefone: this.clienteAtual.telefone
-      });
-    }
-  }
-
-  abrirCadastroCliente(): void {
-    this.showCadastroCliente = true;
-    this.showOpcoesCliente = false; // Esconder opções ao abrir cadastro
-    // Pré-preencher CPF se foi buscado
-    if (this.cpfBusca && this.cpfBusca !== '000.000.000-00') {
-      this.clienteForm.patchValue({
-        cpf: this.cpfBusca
-      });
-    }
-  }
-
-  fecharCadastroCliente(): void {
-    this.showCadastroCliente = false;
-    this.clienteForm.reset();
-  }
-
-  async salvarNovoCliente(): Promise<void> {
-    if (this.clienteForm.valid) {
-      try {
-        this.clienteService.criarCliente(this.clienteForm.value).subscribe({
-          next: (novoCliente) => {
-            this.clienteAtual = novoCliente;
-            this.clienteEncontrado = true;
-            this.cpfBusca = novoCliente.cpf || '';
-            this.preencherDadosCliente();
-            this.fecharCadastroCliente();
-            this.successMessage = `Cliente ${novoCliente.nome} cadastrado com sucesso!`;
-          },
-          error: (error: any) => {
-            this.errorMessage = 'Erro ao cadastrar cliente.';
-          }
-        });
-      } catch (error) {
-        this.errorMessage = 'Erro ao cadastrar cliente.';
-      }
-    }
-  }
-
-  usarCpfFake(): void {
-    this.cpfBusca = '000.000.000-00';
-    this.showOpcoesCliente = false; // Esconder opções ao usar CPF fake
-    this.buscarClientePorCpf();
-  }
-
-  limparCliente(): void {
-    this.clienteAtual = null;
-    this.clienteEncontrado = false;
-    this.cpfBusca = '';
-    this.showOpcoesCliente = false; // Resetar opções ao limpar cliente
-    this.vendaForm.patchValue({
-      clienteNome: '',
-      clienteEmail: '',
-      clienteTelefone: ''
+  loadStats(): void {
+    this.vendasService.obterEstatisticasVendas().subscribe({
+      next: (s) => {
+        this.stats = { 
+          ...s, 
+          vendasHoje: (s as any).vendasHoje ?? s.totalVendas ?? 0,
+          faturamentoHoje: (s as any).faturamentoHoje ?? s.totalFaturamento ?? 0,
+          vendasMes: (s as any).vendasMes ?? s.totalVendas ?? 0,
+          faturamentoMes: (s as any).faturamentoMes ?? s.totalFaturamento ?? 0
+        };
+      },
+      error: (err) => console.error('Erro ao carregar estatísticas:', err)
     });
   }
 
   formatarCpf(event: any): void {
-    let value = event.target.value.replace(/\D/g, '');
-    
-    if (value.length <= 11) {
-      value = value.replace(/(\d{3})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    }
-    
+    let value = (event.target.value || '').replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
     event.target.value = value;
     this.cpfBusca = value;
   }
 
+  onCpfFocus(): void { this.showOpcoesCliente = true; }
+
+  usarCpfFake(): void { this.cpfBusca = '000.000.000-00'; this.buscarClientePorCpf(); }
+
   formatarTelefone(event: any): void {
-    let value = event.target.value.replace(/\D/g, '');
-    
-    if (value.length <= 11) {
-      if (value.length <= 10) {
-        value = value.replace(/(\d{2})(\d)/, '($1) $2');
-        value = value.replace(/(\d{4})(\d)/, '$1-$2');
-      } else {
-        value = value.replace(/(\d{2})(\d)/, '($1) $2');
-        value = value.replace(/(\d{5})(\d)/, '$1-$2');
-      }
-    }
-    
+    let value = (event.target.value || '').replace(/\D/g, '');
+    if (value.length <= 10) value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    else value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
     event.target.value = value;
   }
 
   formatarCep(event: any): void {
-    let value = event.target.value.replace(/\D/g, '');
-    
-    if (value.length <= 8) {
-      value = value.replace(/(\d{5})(\d)/, '$1-$2');
-    }
-    
+    let value = (event.target.value || '').replace(/\D/g, '');
+    if (value.length > 8) value = value.slice(0, 8);
+    value = value.replace(/(\d{5})(\d{1,3})/, '$1-$2');
     event.target.value = value;
   }
 
-  // ===== FIM MÉTODOS DE CLIENTE =====
+  getErrorMessage(fieldName: string): string {
+    const control = this.vendaForm.get(fieldName);
+    if (!control) return '';
+    if (control.hasError('required')) return 'Campo obrigatório.';
+    if (control.hasError('min')) return 'Valor abaixo do mínimo.';
+    if (control.hasError('email')) return 'Email inválido.';
+    return '';
+  }
 
-  getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'PENDENTE':
-        return 'bg-warning text-dark';
-      case 'CONFIRMADA':
-        return 'bg-info text-white';
-      case 'ENTREGUE':
-        return 'bg-success text-white';
-      case 'CANCELADA':
-        return 'bg-danger text-white';
-      default:
-        return 'bg-secondary text-white';
+  getFilteredProdutos(index: number): ProdutoResponse[] { return this.filteredProdutos[index] || []; }
+
+  getFormaPagamentoText(forma: any): string { return this.vendasService.getTextoFormaPagamento(forma); }
+  getStatusText(status: any): string { return this.vendasService.getTextoStatus(status); }
+  getStatusBadgeClass(status: any): string { return this.vendasService.getClasseStatus(status); }
+
+  onParcelamentoChange(): void { /* recalcula valores das parcelas */ }
+  onJurosChange(): void { /* recalcula juros */ }
+  onPercentualDescontoChange(): void { 
+    console.log('📈 onPercentualDescontoChange chamado - DESCONTO GERAL');
+    
+    // O desconto % final é um DESCONTO GERAL (não por item)
+    // Recalcular descontos cumulativos com debounce maior
+    setTimeout(() => {
+      this.recalcularDescontosCumulativos();
+    }, 100);
+  }
+
+  getCategoriaClass(categoria: string): string {
+    switch(categoria) {
+      case 'DIAMANTE': return 'primary';
+      case 'OURO': return 'warning';
+      case 'PRATA': return 'secondary';
+      case 'BRONZE': return 'dark';
+      default: return 'dark';
     }
   }
 
-  getStatusText(status: string): string {
-    switch (status) {
-      case 'PENDENTE':
-        return 'Pendente';
-      case 'CONFIRMADA':
-        return 'Confirmada';
-      case 'ENTREGUE':
-        return 'Entregue';
-      case 'CANCELADA':
-        return 'Cancelada';
-      default:
-        return status;
+  calculateItemSubtotal(index: number): void { this.calcularTotalItem(index); }
+
+  onProdutoSearch(index: number, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const term = target.value.toLowerCase();
+    console.log(`🔧 onProdutoSearch called - index: ${index}, term: "${term}"`);
+    
+    // 🔧 Atualizar o FormControl do produto nome
+    const item = this.itensFormArray.at(index) as FormGroup;
+    item.patchValue({ produtoNome: target.value });
+    
+    // 🔧 COMPORTAMENTO COMO SELECT NATIVO: Só abre com digitação real
+    this.produtoSearchTerms[index] = term;
+    
+    if (!term.trim()) {
+      // Se campo limpo, fechar imediatamente
+      this.showDropdown[index] = false;
+      this.filteredProdutos[index] = [...this.produtos];
+      console.log(`🔧 Campo limpo - dropdown FECHADO`);
+      return;
+    }
+    
+    // Filtrar produtos baseado no termo
+    this.filteredProdutos[index] = this.produtos.filter(p =>
+      (p.nome || '').toLowerCase().includes(term) || (p.departamento || '').toLowerCase().includes(term)
+    );
+    
+    // 🔧 COMPORTAMENTO COMO SELECT: Só abre quando há digitação ATIVA (> 1 caractere)
+    if (this.filteredProdutos[index].length > 0 && term.length >= 2) {
+      this.showDropdown[index] = true;
+      console.log(`🔧 Digitação ativa: "${term}" - ${this.filteredProdutos[index].length} resultados - dropdown ABERTO`);
+    } else {
+      this.showDropdown[index] = false;
+      console.log(`🔧 Termo muito curto ou sem resultados - dropdown FECHADO`);
     }
   }
 
-  getFormaPagamentoText(forma: string): string {
-    switch (forma) {
-      case 'DINHEIRO':
-        return 'Dinheiro';
-      case 'CARTAO_CREDITO':
-        return 'Cartão de Crédito';
-      case 'CARTAO_DEBITO':
-        return 'Cartão de Débito';
-      case 'PIX':
-        return 'PIX';
-      case 'TRANSFERENCIA':
-        return 'Transferência';
-      case 'BOLETO':
-        return 'Boleto';
-      default:
-        return forma;
+  onProdutoClick(index: number): void {
+    console.log(`🔧 onProdutoClick called - index: ${index}`);
+    // 🔧 COMPORTAMENTO COMO SELECT NATIVO: Abrir dropdown quando clicado
+    
+    if (this.produtos.length > 0) {
+      // Se dropdown está fechado, abrir com todos os produtos
+      if (!this.showDropdown[index]) {
+        this.showDropdown[index] = true;
+        this.filteredProdutos[index] = [...this.produtos];
+        console.log(`🔧 Dropdown ABERTO por clique - todos os produtos exibidos - index: ${index}`);
+      } else {
+        // Se dropdown está aberto, fechar
+        this.showDropdown[index] = false;
+        console.log(`🔧 Dropdown FECHADO por clique - index: ${index}`);
+      }
     }
+  }
+
+  onProdutoFocus(index: number): void {
+    console.log(`🔧 onProdutoFocus called - index: ${index}`);
+    // 🔧 COMPORTAMENTO COMO SELECT NATIVO: NÃO abrir no focus, apenas preparar dados
+    // O dropdown só abrirá quando o usuário realmente clicar (via onProdutoClick)
+    
+    const searchTerm = this.produtoSearchTerms[index] || '';
+    if (this.produtos.length > 0) {
+      // Apenas preparar dados filtrados, mas NÃO abrir dropdown
+      this.filteredProdutos[index] = searchTerm ? 
+        this.produtos.filter(p => 
+          (p.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+          (p.departamento || '').toLowerCase().includes(searchTerm.toLowerCase())
+        ) : this.produtos;
+      console.log(`🔧 Dados preparados no focus - dropdown permanece FECHADO - index: ${index}`);
+    }
+  }
+
+  onProdutoBlur(index: number): void {
+    // 🔧 CORREÇÃO: Tempo otimizado para permitir cliques mas fechar rapidamente
+    setTimeout(() => {
+      // Verificar se o usuário não está clicando em um item do dropdown
+      const activeElement = document.activeElement;
+      const isClickingDropdown = activeElement && activeElement.closest('.dropdown-menu');
+      
+      if (!isClickingDropdown) {
+        this.showDropdown[index] = false;
+        console.log(`🔧 Dropdown fechado por blur - index: ${index}`);
+      }
+    }, 150);
+  }
+
+  selectProduto(index: number, produto: ProdutoResponse): void {
+    console.log(`🔧 selectProduto called - index: ${index}, produto:`, produto);
+    const item = this.itensFormArray.at(index) as FormGroup;
+    
+    console.log(`🔧 FormGroup before update:`, item.value);
+    console.log(`🔧 FormGroup controls:`, Object.keys(item.controls));
+    
+    // 🔧 Verificar se produto tem estoque disponível (apenas para produtos sem tamanhos)
+    if (!produto.tamanhos || produto.tamanhos.length === 0) {
+      if (produto.estoque <= 0) {
+        console.log(`🔧 Produto sem tamanhos e sem estoque, retornando...`);
+        this.errorMessage = `Produto "${produto.nome}" não possui estoque disponível.`;
+        return;
+      }
+    }
+    
+    console.log(`🔧 Produto selecionado, continuando... estoque: ${produto.estoque}`);
+    
+    // 🔧 Atualizar o FormControl com ID, nome e preço
+    try {
+      item.patchValue({ 
+        produtoId: produto.id, 
+        produtoNome: produto.nome,
+        precoUnitario: produto.preco
+      });
+      console.log(`🔧 patchValue executado com sucesso`);
+    } catch (error) {
+      console.error(`🔧 Erro no patchValue:`, error);
+    }
+    
+    console.log(`🔧 FormGroup after update:`, item.value);
+    console.log(`🔧 produtoNome control value:`, item.get('produtoNome')?.value);
+    console.log(`🔧 precoUnitario control value:`, item.get('precoUnitario')?.value);
+    
+    // 🔧 COMPORTAMENTO COMO SELECT NATIVO: Fechamento imediato após seleção
+    this.showDropdown[index] = false;
+    
+    // Atualizar termo de busca com o nome do produto selecionado
+    this.produtoSearchTerms[index] = produto.nome;
+    
+    console.log(`🔧 PRODUTO SELECIONADO (como select nativo) - Dropdown fechado para: ${produto.nome}`);
+    
+    // 🔧 GARANTIA de fechamento como select nativo
+    setTimeout(() => this.showDropdown[index] = false, 0);
+    setTimeout(() => this.showDropdown[index] = false, 50);
+    setTimeout(() => this.showDropdown[index] = false, 100);
+    
+    // 🔧 Usar setTimeout para todas as operações após patchValue para evitar ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => {
+      if (produto.tamanhos && produto.tamanhos.length > 0) {
+        console.log(`🔧 Produto tem tamanhos, carregando...`);
+        this.carregarTamanhosDisponiveis(index, produto.id!);
+      } else {
+        console.log(`🔧 Produto sem tamanhos, validando estoque...`);
+        this.validarEstoqueProduto(index, produto);
+      }
+      
+      console.log(`🔧 Calculando total do item...`);
+      this.calcularTotalItem(index);
+      
+      // 🎯 RECALCULAR DESCONTOS uma única vez após adicionar produto
+      setTimeout(() => {
+        this.calcularTotalGeral();
+        
+        // Verificar se existe evento ou desconto percentual
+        const eventoId = this.vendaForm.get('evento')?.value;
+        const percentualDesconto = this.vendaForm.get('percentualDesconto')?.value || 0;
+        
+        if ((eventoId && this.eventoSelecionado && this.eventoSelecionado.descontoPercentual && this.eventoSelecionado.descontoPercentual > 0) || percentualDesconto > 0) {
+          this.recalcularDescontosCumulativos();
+        }
+      }, 100);
+      
+      console.log(`🔧 selectProduto finalizado`);
+    }, 0);
+  }
+
+  /**
+   * 🆕 Carrega tamanhos disponíveis (com estoque > 0) para um produto
+   */
+  carregarTamanhosDisponiveis(index: number, produtoId: number): void {
+    console.log(`🔧 carregarTamanhosDisponiveis chamado - index: ${index}, produtoId: ${produtoId}`);
+    
+    this.produtoService.buscarTamanhosComEstoque(produtoId).subscribe({
+      next: (tamanhos) => {
+        console.log(`🔧 Tamanhos recebidos:`, tamanhos);
+        const item = this.itensFormArray.at(index) as FormGroup;
+        
+        if (tamanhos.length === 0) {
+          console.log(`🔧 Nenhum tamanho com estoque disponível`);
+          this.errorMessage = `Produto não possui tamanhos com estoque disponível.`;
+          // 🚫 NÃO resetar o produto - apenas mostrar erro
+          return;
+        }
+        
+        console.log(`🔧 Atualizando FormGroup com ${tamanhos.length} tamanhos`);
+        // 🔄 Limpar erro anterior
+        this.errorMessage = '';
+        
+        item.patchValue({
+          tamanhosDisponiveis: tamanhos,
+          temTamanhos: true
+        });
+        
+        if (tamanhos.length === 1) {
+          console.log(`🔧 Selecionando automaticamente o tamanho: ${tamanhos[0].tamanho}`);
+          item.patchValue({ tamanhoSelecionado: tamanhos[0].id });
+          this.validarEstoqueTamanho(index, tamanhos[0]);
+        }
+        
+        console.log(`🔧 carregarTamanhosDisponiveis concluído`);
+      },
+      error: (err) => {
+        console.error('🚨 Erro ao carregar tamanhos:', err);
+        this.errorMessage = 'Erro ao carregar tamanhos do produto.';
+      }
+    });
+  }
+
+  /**
+   * 🆕 Valida estoque de produto sem tamanhos
+   */
+  validarEstoqueProduto(index: number, produto: ProdutoResponse): void {
+    const item = this.itensFormArray.at(index);
+    const quantidade = item.get('quantidade')?.value || 1;
+    
+    if (produto.estoque < quantidade) {
+      this.errorMessage = `Estoque insuficiente. Disponível: ${produto.estoque}, Solicitado: ${quantidade}`;
+      item.get('quantidade')?.setValue(produto.estoque);
+    }
+  }
+
+  /**
+   * 🆕 Valida estoque disponível para um tamanho específico
+   */
+  validarEstoqueTamanho(index: number, tamanho: TamanhoProduto): void {
+    console.log(`🔧 validarEstoqueTamanho chamado - index: ${index}, tamanho:`, tamanho);
+    
+    const item = this.itensFormArray.at(index);
+    const quantidade = item.get('quantidade')?.value || 1;
+    const estoqueDisponivel = tamanho.estoque || tamanho.quantidade;
+    
+    console.log(`🔧 Validando estoque - quantidade: ${quantidade}, disponível: ${estoqueDisponivel}`);
+    
+    if (estoqueDisponivel < quantidade) {
+      console.log(`🚨 Estoque insuficiente!`);
+      this.errorMessage = `Estoque insuficiente para tamanho ${tamanho.nome}. Disponível: ${estoqueDisponivel}, Solicitado: ${quantidade}`;
+      item.get('quantidade')?.setValue(estoqueDisponivel);
+    }
+    
+    if (tamanho.preco) {
+      console.log(`🔧 Atualizando preço para: ${tamanho.preco}`);
+      item.patchValue({ precoUnitario: tamanho.preco });
+    }
+    
+    console.log(`🔧 validarEstoqueTamanho concluído`);
+  }
+
+  /**
+   * 🆕 Chamado quando usuário seleciona um tamanho
+   */
+  onTamanhoChange(index: number): void {
+    const item = this.itensFormArray.at(index) as FormGroup;
+    const tamanhoId = item.get('tamanhoSelecionado')?.value;
+    const tamanhos = this.getTamanhosDisponiveis(index);
+    
+    const tamanho = tamanhos.find((t: TamanhoProduto) => t.id === Number(tamanhoId));
+    if (tamanho) {
+      this.validarEstoqueTamanho(index, tamanho);
+      this.calcularTotalItem(index);
+    }
+  }
+
+  /**
+   * 🆕 Retorna tamanhos disponíveis para um item específico
+   */
+  getTamanhosDisponiveis(index: number): TamanhoProduto[] {
+    const item = this.itensFormArray.at(index);
+    return item.get('tamanhosDisponiveis')?.value || [];
+  }
+
+  /**
+   * 🆕 Verifica se um produto tem tamanhos
+   */
+  produtoTemTamanhos(index: number): boolean {
+    const item = this.itensFormArray.at(index);
+    const temTamanhos = item.get('temTamanhos')?.value || false;
+    const tamanhos = this.getTamanhosDisponiveis(index);
+    return temTamanhos && tamanhos.length > 0;
+  }
+
+  /**
+   * 🆕 Verifica se é necessário selecionar um tamanho
+   */
+  precisaSelecionarTamanho(index: number): boolean {
+    if (!this.produtoTemTamanhos(index)) {
+      return false;
+    }
+    
+    const item = this.itensFormArray.at(index);
+    const tamanhoSelecionado = item.get('tamanhoSelecionado')?.value;
+    const tamanhos = this.getTamanhosDisponiveis(index);
+    
+    return tamanhos.length > 1 && !tamanhoSelecionado;
+  }
+
+  /**
+   * 🆕 Verifica se o item está pronto para venda
+   */
+  itemProntoParaVenda(index: number): boolean {
+    const item = this.itensFormArray.at(index);
+    const produtoId = item.get('produtoId')?.value;
+    
+    if (!produtoId) {
+      return false;
+    }
+    
+    if (this.produtoTemTamanhos(index)) {
+      return !this.precisaSelecionarTamanho(index);
+    }
+    
+    return true;
+  }
+
+  calcularTotalItem(index: number): number {
+    const item = this.itensFormArray.at(index);
+    const quantidade = item.get('quantidade')?.value || 0;
+    const preco = item.get('precoUnitario')?.value || 0;
+    const subtotal = quantidade * preco;
+    const perc = item.get('percentualDesconto')?.value || 0;
+    const desconto = (subtotal * (perc || 0)) / 100;
+    const total = subtotal - desconto;
+    
+    // Só logar quando houver mudanças significativas para evitar spam
+    const currentTotal = item.get('totalComDesconto')?.value;
+    if (Math.abs(currentTotal - total) > 0.01) {
+      console.log(`💰 calcularTotalItem[${index}] - Qtd: ${quantidade}, Preço: ${preco}, Subtotal: ${subtotal}, Total: ${total}`);
+    }
+    
+    // Atualizar valores diretamente sem setTimeout para evitar problemas de timing
+    item.get('subtotal')?.setValue(subtotal, { emitEvent: false });
+    item.get('totalComDesconto')?.setValue(total, { emitEvent: false });
+    
+    // Atualizar arrays de totais calculados
+    this.totaisCalculados[index] = total;
+    this.subtotaisCalculados[index] = subtotal;
+    
+    return total;
+  }
+
+  // Método seguro para obter total calculado sem loops
+  getTotalCalculado(index: number): number {
+    if (this.totaisCalculados[index] !== undefined) {
+      return this.totaisCalculados[index];
+    }
+    return this.calcularTotalItem(index);
+  }
+
+  // Métodos seguros para template (evitam loops infinitos)
+  getTotalDescontoIndividualSeguro(): number {
+    try {
+      return this.calcularDescontoTotalIndividual();
+    } catch (error) {
+      console.warn('Erro ao calcular desconto individual:', error);
+      return 0;
+    }
+  }
+
+  getDescontoEventoSeguro(): number {
+    try {
+      return this.calcularDescontoEvento();
+    } catch (error) {
+      console.warn('Erro ao calcular desconto evento:', error);
+      return 0;
+    }
+  }
+
+  getTotalDescontoCumulativoSeguro(): number {
+    try {
+      return this.calcularDescontoTotalCumulativo();
+    } catch (error) {
+      console.warn('Erro ao calcular desconto cumulativo:', error);
+      return 0;
+    }
+  }
+
+  getDescontoGeralPercentualSeguro(): number {
+    try {
+      return this.calcularDescontoGeralPercentual();
+    } catch (error) {
+      console.warn('Erro ao calcular desconto geral percentual:', error);
+      return 0;
+    }
+  }
+
+  // 🆕 Método para calcular o TOTAL de descontos para EXIBIÇÃO (inclui todos os tipos)
+  getTotalDescontosParaExibicao(): number {
+    try {
+      const descontoItens = this.getTotalDescontoIndividualSeguro(); // Desconto por item
+      const descontoEvento = this.getDescontoEventoSeguro(); // Desconto do evento
+      const descontoGeral = this.getDescontoGeralPercentualSeguro(); // Desconto geral/percentual
+      
+      const totalDescontos = descontoItens + descontoEvento + descontoGeral;
+      
+      console.log('🎯 TOTAL DESCONTOS PARA EXIBIÇÃO:', {
+        descontoItens: descontoItens.toFixed(2),
+        descontoEvento: descontoEvento.toFixed(2), 
+        descontoGeral: descontoGeral.toFixed(2),
+        totalDescontos: totalDescontos.toFixed(2)
+      });
+      
+      return totalDescontos;
+    } catch (error) {
+      console.warn('Erro ao calcular total de descontos para exibição:', error);
+      return 0;
+    }
+  }
+  
+  onQuantidadeChange(index: number): void { 
+    console.log(`📊 onQuantidadeChange[${index}]`);
+    this.calcularTotalItem(index);
+    // Recalcular descontos cumulativos após mudança na quantidade
+    setTimeout(() => this.recalcularDescontosCumulativos(), 50);
+  }
+  
+  aplicarDescontoPorcentual(index: number, event: Event): void { 
+    console.log(`📊 aplicarDescontoPorcentual[${index}] - DESCONTO POR ITEM`);
+    
+    // Recalcular apenas este item
+    this.calcularTotalItem(index);
+    
+    // Recalcular descontos cumulativos após mudança no desconto por item
+    setTimeout(() => this.recalcularDescontosCumulativos(), 50);
+  }
+
+  // 🆕 Método para recalcular todos os valores de forma consistente
+  recalcularTodosOsValores(): void {
+    console.log('🔄 Recalculando todos os valores...');
+    
+    // Recalcular todos os itens (SEM chamar calcularTotalGeral internamente)
+    for (let i = 0; i < this.itensFormArray.length; i++) {
+      this.calcularTotalItem(i);
+    }
+    
+    // Recalcular descontos cumulativos após recalcular todos os itens
+    setTimeout(() => {
+      const temDesconto = (this.eventoSelecionado && this.eventoSelecionado.descontoPercentual && this.eventoSelecionado.descontoPercentual > 0) || 
+                         (this.vendaForm.get('percentualDesconto')?.value || 0) > 0;
+      
+      if (temDesconto) {
+        this.recalcularDescontosCumulativos();
+      } else {
+        this.calcularTotalGeral();
+      }
+    }, 30);
+  }
+
+  // 🆕 Método para aplicar desconto geral por porcentagem (CUMULATIVO)
+  aplicarDescontoGeralPorcentual(): void {
+    console.log('📈 aplicarDescontoGeralPorcentual chamado');
+    
+    // Usar o método corrigido de cálculo cumulativo
+    this.recalcularDescontosCumulativos();
+  }
+
+  // 🆕 Método para recalcular total geral - CORRIGIDO para não aplicar desconto duplo
+  calcularTotalGeral(): void {
+    const subtotalComDescontoItens = this.getSubtotalComDescontoItens(); // Já inclui descontos individuais
+    const descontoAdicional = this.vendaForm.get('desconto')?.value || 0; // Apenas descontos adicionais (evento/geral)
+    const total = Math.max(0, subtotalComDescontoItens - descontoAdicional);
+    
+    console.log('💰 calcularTotalGeral CORRIGIDO - Subtotal (c/ desc. itens):', subtotalComDescontoItens.toFixed(2), 
+                'Desconto adicional:', descontoAdicional.toFixed(2), 'Total final:', total.toFixed(2));
+    
+    // Atualizar o total no form se necessário
+    if (!this.vendaForm.get('total')) {
+      console.log('💰 Campo total não existe no form');
+    }
+    
+    this.vendaForm.get('desconto')?.updateValueAndValidity();
+  }
+  
+  // 🆕 Método para recalcular todos os descontos de forma coordenada
+  recalcularDescontosCumulativos(): void {
+    console.log('🔄 Recalculando descontos cumulativos...');
+    
+    const descontoTotalCumulativo = this.calcularDescontoTotalCumulativo();
+    
+    console.log('📈 Definindo desconto total cumulativo:', descontoTotalCumulativo);
+    this.vendaForm.get('desconto')?.setValue(descontoTotalCumulativo, { emitEvent: false });
+    
+    this.calcularTotalGeral();
+  }
+
+  getSubtotal(): number { return this.itensFormArray.controls.reduce((sum, c) => sum + (c.get('subtotal')?.value || 0), 0); }
+  getSubtotalComDescontoItens(): number { return this.itensFormArray.controls.reduce((sum, c) => sum + (c.get('totalComDesconto')?.value || 0), 0); }
+  getTotal(): number { const subtotal = this.getSubtotalComDescontoItens(); const descontoGeral = this.vendaForm.get('desconto')?.value || 0; return Math.max(0, subtotal - descontoGeral); }
+  
+  // 🆕 Método para calcular desconto total cumulativo - CORRIGIDO para não aplicar desconto duplo
+  calcularDescontoTotalCumulativo(): number {
+    // 🔧 GARANTIR que os totais dos itens estão atualizados ANTES do cálculo
+    this.itensFormArray.controls.forEach((control, index) => {
+      this.calcularTotalItem(index);
+    });
+    
+    const subtotalOriginal = this.getSubtotal(); // Subtotal SEM nenhum desconto
+    const subtotalComDescontoItens = this.getSubtotalComDescontoItens(); // Subtotal COM desconto individual já aplicado
+    
+    // 🎯 CORREÇÃO: Se os itens já têm desconto aplicado, NÃO aplicar desconto adicional de itens
+    // Os descontos individuais já estão incorporados no subtotalComDescontoItens
+    
+    // 1. Desconto de evento (aplica sobre subtotal original - antes de qualquer desconto)
+    let descontoEventoValor = 0;
+    if (this.eventoSelecionado && this.eventoSelecionado.descontoPercentual && this.eventoSelecionado.descontoPercentual > 0) {
+      descontoEventoValor = (subtotalOriginal * this.eventoSelecionado.descontoPercentual) / 100;
+    }
+    
+    // 2. Desconto geral/percentual (aplica sobre subtotal com desconto individual já aplicado)
+    let descontoGeralValor = 0;
+    const percentualDesconto = this.vendaForm.get('percentualDesconto')?.value || 0;
+    if (percentualDesconto > 0) {
+      descontoGeralValor = (subtotalComDescontoItens * percentualDesconto) / 100;
+    }
+    
+    // 🎯 TOTAL: Apenas descontos adicionais (evento + geral), NÃO incluir desconto de itens
+    const descontoTotalCumulativo = descontoEventoValor + descontoGeralValor;
+    
+    // 🔧 LOGS INFORMATIVOS - mostra cálculo correto
+    if (subtotalOriginal > 0) {
+      const descontoIndividualJaAplicado = subtotalOriginal - subtotalComDescontoItens;
+      console.log('🧮 DESCONTO CORRIGIDO - Original:', subtotalOriginal.toFixed(2), 
+                  'Já aplicado nos itens:', descontoIndividualJaAplicado.toFixed(2), 
+                  'Desconto adicional:', descontoTotalCumulativo.toFixed(2));
+    }
+    
+    return descontoTotalCumulativo;
+  }
+  getValorComJuros(): number { const total = this.getTotal(); const juros = this.vendaForm.get('jurosPercentual')?.value || 0; return total + (total * juros / 100); }
+  getValorParcela(): number { const numeroParcelas = this.vendaForm.get('numeroParcelas')?.value || 1; return this.getValorComJuros() / numeroParcelas; }
+  getTotalFinal(): number { return this.getValorComJuros(); }
+  
+  // ===== MÉTODOS PARA EXIBIÇÃO VISUAL DOS DESCONTOS =====
+  
+  /**
+   * Calcula desconto total dos itens individuais
+   */
+  calcularDescontoTotalIndividual(): number {
+    return this.itensFormArray.controls.reduce((total, control) => {
+      const subtotal = control.get('subtotal')?.value || 0;
+      const totalComDesconto = control.get('totalComDesconto')?.value || 0;
+      return total + (subtotal - totalComDesconto);
+    }, 0);
+  }
+  
+  /**
+   * Calcula valor do desconto de evento
+   */
+  calcularDescontoEvento(): number {
+    if (!this.eventoSelecionado || !this.eventoSelecionado.descontoPercentual || this.eventoSelecionado.descontoPercentual <= 0) {
+      return 0;
+    }
+    const subtotalOriginal = this.getSubtotal();
+    return (subtotalOriginal * this.eventoSelecionado.descontoPercentual) / 100;
+  }
+  
+  /**
+   * Calcula valor do desconto geral percentual
+   */
+  calcularDescontoGeralPercentual(): number {
+    const percentualDesconto = this.vendaForm.get('percentualDesconto')?.value || 0;
+    if (percentualDesconto <= 0) {
+      return 0;
+    }
+    const subtotalComDescontoItens = this.getSubtotalComDescontoItens();
+    return (subtotalComDescontoItens * percentualDesconto) / 100;
+  }
+
+  // filtros / paginação simples no frontend
+  getFilteredVendas(): VendaResponse[] {
+    let filtered = [...this.vendas];
+    if (this.searchTerm) {
+      const term = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(v => (v.nomeCliente || '').toLowerCase().includes(term) || (v.id?.toString() || '').includes(term));
+    }
+    if (this.statusFilter) filtered = filtered.filter(v => v.status === this.statusFilter);
+    if (this.dateFilter) {
+      const today = new Date();
+      filtered = filtered.filter(v => {
+        const d = new Date(v.dataVenda as any);
+        if (this.dateFilter === 'hoje') return d.toDateString() === today.toDateString();
+        if (this.dateFilter === 'semana') return d >= new Date(today.getTime() - 7 * 24 * 3600 * 1000);
+        if (this.dateFilter === 'mes') return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+        return true;
+      });
+    }
+    if (this.orderByPrice === 'asc') filtered.sort((a, b) => (a.valorTotal || 0) - (b.valorTotal || 0));
+    if (this.orderByPrice === 'desc') filtered.sort((a, b) => (b.valorTotal || 0) - (a.valorTotal || 0));
+    return filtered;
+  }
+
+  getPaginatedVendas(): VendaResponse[] { const filtered = this.getFilteredVendas(); const start = (this.currentPage - 1) * this.itemsPerPage; return filtered.slice(start, start + this.itemsPerPage); }
+  getTotalPages(): number { return Math.ceil(this.getFilteredVendas().length / this.itemsPerPage) || 1; }
+  goToPage(page: number): void { if (page < 1) page = 1; if (page > this.getTotalPages()) page = this.getTotalPages(); this.currentPage = page; }
+
+  // ações do template
+  toggleVendaForm(): void { 
+    this.showVendaForm = !this.showVendaForm; 
+    if (!this.showVendaForm) {
+      this.resetVendaForm(); 
+    } else {
+      // 🔧 CORREÇÃO: Limpar arrays de controle do dropdown ao abrir nova venda
+      this.limparControlsDropdown();
+    }
+  }
+
+  resetVendaForm(): void { 
+    this.vendaForm.reset({ 
+      formaPagamento: FormaPagamento.DINHEIRO, 
+      pagamentoParcelado: false, 
+      numeroParcelas: 1, 
+      jurosPercentual: 0, 
+      desconto: 0 
+    }); 
+    
+    // Limpar itens do FormArray
+    while (this.itensFormArray.length > 1) {
+      this.itensFormArray.removeAt(1);
+    }
+    this.itensFormArray.at(0).reset({ 
+      quantidade: 1, 
+      precoUnitario: 0, 
+      subtotal: 0, 
+      percentualDesconto: 0, 
+      totalComDesconto: 0 
+    }); 
+    
+    this.showVendaForm = false;
+    
+    // 🔧 CORREÇÃO: Limpar arrays de controle do dropdown
+    this.limparControlsDropdown();
+  }
+
+  /**
+   * 🆕 CORREÇÃO: Método para limpar completamente os arrays de controle do dropdown
+   */
+  private limparControlsDropdown(): void {
+    console.log('🔧 Limpando controles do dropdown...');
+    
+    // 🔧 LIMPEZA TOTAL E FORÇADA
+    this.produtoSearchTerms = {};
+    this.showDropdown = {};
+    this.filteredProdutos = {};
+    
+    // Inicializar para todos os itens do FormArray
+    const numItens = Math.max(this.itensFormArray.length, 1);
+    for (let i = 0; i < numItens; i++) {
+      this.produtoSearchTerms[i] = '';
+      this.showDropdown[i] = false; // 🔧 SEMPRE FECHADO - GARANTIA MÁXIMA
+      this.filteredProdutos[i] = [...this.produtos];
+      
+      // 🔧 GARANTIA EXTRA - forçar fechamento com timeout
+      setTimeout(() => {
+        this.showDropdown[i] = false;
+      }, 0);
+    }
+    
+    console.log(`🔧 Arrays de controle COMPLETAMENTE limpos para ${numItens} itens - TODOS FORÇADOS A FECHAR`);
+  }
+
+  onFormaPagamentoChange(): void { const forma = this.vendaForm.get('formaPagamento')?.value; if (forma !== FormaPagamento.CARTAO_CREDITO) this.vendaForm.patchValue({ pagamentoParcelado: false, numeroParcelas: 1, jurosPercentual: 0 }); }
+  isCartaoCredito(): boolean { return this.vendaForm.get('formaPagamento')?.value === FormaPagamento.CARTAO_CREDITO; }
+  isParcelado(): boolean { return this.vendaForm.get('pagamentoParcelado')?.value === true; }
+
+  formatarMoeda(valor: number | null | undefined): string { return this.vendasService.formatarMoeda(valor as any); }
+  formatarData(data: Date | string | undefined): string { return this.vendasService.formatarData(data as any); }
+
+  // busca por código de barras
+  buscarPorCodigoBarras(codigo: string): void {
+    if (!codigo) return;
+    this.produtoService.buscarPorCodigoBarras(codigo).subscribe({
+      next: (p) => { this.addItem(); const idx = this.itensFormArray.length - 1; this.selectProduto(idx, p); },
+      error: (err) => this.errorMessage = 'Produto não encontrado por código de barras.'
+    });
+  }
+
+  // cliente
+  buscarClientePorCpf(): void {
+    const cpf = this.cpfBusca?.replace(/\D/g, '') || '';
+    if (!cpf) { this.clienteAtual = null; this.clienteEncontrado = false; return; }
+    this.buscandoCliente = true;
+    this.clienteService.buscarPorCpf(this.cpfBusca).subscribe({
+      next: (c) => { if (c) { this.clienteAtual = c as Cliente; this.clienteEncontrado = true; this.preencherDadosCliente(); this.successMessage = `Cliente encontrado: ${c.nome}`; } else { this.clienteAtual = null; this.clienteEncontrado = false; } this.buscandoCliente = false; },
+      error: (err) => { this.errorMessage = 'Erro ao buscar cliente.'; this.buscandoCliente = false; }
+    });
+  }
+
+  preencherDadosCliente(): void { if (!this.clienteAtual) return; this.vendaForm.patchValue({ clienteNome: this.clienteAtual.nome, clienteEmail: this.clienteAtual.email, clienteTelefone: this.clienteAtual.telefone }); }
+
+  abrirCadastroCliente(): void { this.showCadastroCliente = true; }
+  fecharCadastroCliente(): void { this.showCadastroCliente = false; }
+
+  salvarNovoCliente(): void { if (!this.clienteForm.valid) return; this.clienteService.criarCliente(this.clienteForm.value).subscribe({ next: (c) => { this.clienteAtual = c; this.clienteEncontrado = true; this.successMessage = `Cliente ${c.nome} cadastrado!`; this.fecharCadastroCliente(); }, error: (err) => this.errorMessage = 'Erro ao cadastrar cliente.' }); }
+
+  limparCliente(): void { this.clienteAtual = null; this.clienteEncontrado = false; this.cpfBusca = ''; this.vendaForm.patchValue({ clienteNome: '', clienteEmail: '', clienteTelefone: '' }); }
+
+  // ações da venda
+  onSubmitVenda(): void {
+    if (this.vendaForm.invalid || this.itensFormArray.length === 0) { this.markFormGroupTouched(this.vendaForm); return; }
+    
+    const itens = this.itensFormArray.controls.map(c => {
+      const produto = this.produtos.find(p => p.id === c.get('produtoId')?.value);
+      const subtotal = c.get('subtotal')?.value || 0;
+      const percentualDesconto = c.get('percentualDesconto')?.value || 0;
+      const descontoItemValor = (subtotal * percentualDesconto) / 100;
+      
+      console.log(`📈 Item ${produto?.nome}: Subtotal=${subtotal}, %Desconto=${percentualDesconto}, DescontoValor=${descontoItemValor}`);
+      
+      return {
+        produtoId: c.get('produtoId')?.value,
+        quantidade: c.get('quantidade')?.value,
+        precoUnitario: c.get('precoUnitario')?.value,
+        nomeProduto: produto?.nome || '', // 🔧 Campo obrigatório
+        descontoItem: descontoItemValor, // 🔧 Valor correto do desconto do item
+        tamanho: undefined // Pode ser implementado depois para tamanhos específicos
+      };
+    });
+    
+    // 📈 Cálculos de debug
+    const subtotalTotal = this.getSubtotalComDescontoItens();
+    const descontoGeral = this.vendaForm.get('desconto')?.value || 0;
+    const totalFinal = this.getTotal();
+    
+    console.log('📈 DEBUG VENDA:');
+    console.log('  - Subtotal (com desconto itens):', subtotalTotal);
+    console.log('  - Desconto geral:', descontoGeral);
+    console.log('  - Total final:', totalFinal);
+    console.log('  - Itens:', itens);
+    
+    const request: VendaRequest = {
+      nomeCliente: this.vendaForm.get('clienteNome')?.value,
+      emailCliente: this.vendaForm.get('clienteEmail')?.value,
+      telefoneCliente: this.vendaForm.get('clienteTelefone')?.value,
+      formaPagamento: this.vendaForm.get('formaPagamento')?.value,
+      desconto: descontoGeral, // 🔧 Usar valor calculado
+      observacoes: this.vendaForm.get('observacoes')?.value,
+      eventoId: this.eventoSelecionado?.id, // 🔧 Incluir evento se selecionado
+      itens
+    };
+    
+    console.log('🔧 FRONTEND - Enviando venda com forma de pagamento:', request.formaPagamento);
+    console.log('🔧 FRONTEND - Dados completos da venda:', request);
+    
+    this.isLoading = true;
+    this.vendasService.criarVenda(request).subscribe({ next: (v) => { this.successMessage = 'Venda registrada com sucesso!'; this.resetVendaForm(); this.loadVendas(); this.loadStats(); this.isLoading = false; }, error: (err) => { this.errorMessage = 'Erro ao registrar venda.'; this.isLoading = false; } });
   }
 
   markFormGroupTouched(formGroup: FormGroup): void {
     Object.keys(formGroup.controls).forEach(key => {
       const control = formGroup.get(key);
-      control?.markAsTouched();
-
-      if (control instanceof FormGroup) {
-        this.markFormGroupTouched(control);
+      if (control instanceof FormGroup || control instanceof FormArray) {
+        this.markFormGroupTouched(control as FormGroup);
+      } else {
+        control?.markAsTouched();
       }
     });
   }
 
-  getErrorMessage(fieldName: string): string {
-    const control = this.vendaForm.get(fieldName);
-    if (control?.errors && control.touched) {
-      if (control.errors['required']) {
-        return 'Este campo é obrigatório';
-      }
-      if (control.errors['minlength']) {
-        return `Mínimo de ${control.errors['minlength'].requiredLength} caracteres`;
-      }
-      if (control.errors['email']) {
-        return 'E-mail inválido';
-      }
-      if (control.errors['min']) {
-        if (fieldName === 'quantidade') {
-          return 'Quantidade deve ser pelo menos 1 unidade';
-        }
-        if (fieldName === 'precoUnitario') {
-          return 'Preço deve ser maior que R$ 0,00';
-        }
-        if (fieldName === 'desconto' || fieldName === 'percentualDesconto') {
-          return 'Valor não pode ser negativo';
-        }
-        return `Valor mínimo: ${control.errors['min'].min}`;
-      }
-      if (control.errors['max']) {
-        if (fieldName === 'percentualDesconto') {
-          return 'Desconto não pode ser maior que 100%';
-        }
-        return `Valor máximo: ${control.errors['max'].max}`;
-      }
-    }
-    return '';
+  clearMessages(): void { this.errorMessage = ''; this.successMessage = ''; }
+
+  // util
+  getProdutoNome(index: number): string { 
+    const item = this.itensFormArray.at(index); 
+    const id = item.get('produtoId')?.value; 
+    const p = this.produtos.find(x => x.id === id); 
+    const result = p ? p.nome : (this.produtoSearchTerms[index] || '');
+    console.log(`🔧 getProdutoNome[${index}] - produtoId: ${id}, found: ${p?.nome}, searchTerm: ${this.produtoSearchTerms[index]}, result: "${result}"`);
+    return result;
   }
 
-  clearMessages(): void {
-    this.errorMessage = '';
-    this.successMessage = '';
-  }
+  aplicarFiltroVendasHoje(): void { this.activeFilterBox = this.activeFilterBox === 'hoje' ? '' : 'hoje'; this.dateFilter = this.activeFilterBox === 'hoje' ? 'hoje' : ''; }
+  aplicarFiltroVendasMes(): void { this.activeFilterBox = this.activeFilterBox === 'mes' ? '' : 'mes'; this.dateFilter = this.activeFilterBox === 'mes' ? 'mes' : ''; }
+  aplicarFiltroPendentes(): void { this.activeFilterBox = this.activeFilterBox === 'pendentes' ? '' : 'pendentes'; this.statusFilter = this.activeFilterBox === 'pendentes' ? StatusVenda.PENDENTE : ''; }
+  isBoxActive(box: string): boolean { return this.activeFilterBox === box; }
+  limparTodosFiltros(): void { this.activeFilterBox = ''; this.limparFiltros(); }
+  limparFiltros(): void { this.searchTerm = ''; this.dateFilter = ''; this.statusFilter = ''; this.orderByPrice = ''; this.currentPage = 1; }
 
-  // Métodos para ações da lista de vendas
-  visualizarVenda(venda: Venda): void {
-    const modal = this.createVendaModal(venda, 'visualizar');
-    document.body.appendChild(modal);
-    
-    // Aplicar estilos do Bootstrap modal
-    modal.style.display = 'block';
-    modal.classList.add('show');
-    document.body.classList.add('modal-open');
-    
-    // Criar backdrop
-    const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop fade show';
-    document.body.appendChild(backdrop);
-    
-    // Evento para fechar modal
-    const closeModal = () => {
-      modal.remove();
-      backdrop.remove();
-      document.body.classList.remove('modal-open');
-    };
-    
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
+  visualizarVenda(v: VendaResponse) { /* stub - implementar conforme necessidade */ }
+  editarVenda(v: VendaResponse) { /* stub - implementar conforme necessidade */ }
+  mostrarModalAlterarStatus(v: VendaResponse) { /* stub */ }
+  imprimirVenda(v: VendaResponse) { /* stub */ }
+
+  carregarEventosAtivos(): void {
+    this.eventosService.listarEventosAtivos().subscribe({
+      next: (eventos) => {
+        this.eventosAtivos = eventos;
+      },
+      error: (err) => {
+        console.error('Erro ao carregar eventos:', err);
+        this.eventosAtivos = [];
+      }
     });
-    
-    modal.querySelector('.btn-close')?.addEventListener('click', closeModal);
-    modal.querySelector('.btn-secondary')?.addEventListener('click', closeModal);
   }
 
-  editarVenda(venda: Venda): void {
-    const modal = this.createVendaModal(venda, 'editar');
-    document.body.appendChild(modal);
+  onEventoChange(): void {
+    const eventoId = this.vendaForm.get('evento')?.value; // Mudou de 'eventoId' para 'evento'
+    console.log('🎯 Evento selecionado:', eventoId);
     
-    // Aplicar estilos do Bootstrap modal
-    modal.style.display = 'block';
-    modal.classList.add('show');
-    document.body.classList.add('modal-open');
+    this.eventoSelecionado = this.eventosAtivos.find(e => e.id == eventoId) || null;
     
-    // Criar backdrop
-    const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop fade show';
-    document.body.appendChild(backdrop);
-    
-    // Evento para fechar modal
-    const closeModal = () => {
-      modal.remove();
-      backdrop.remove();
-      document.body.classList.remove('modal-open');
+    if (this.eventoSelecionado && this.eventoSelecionado.descontoPercentual && this.eventoSelecionado.descontoPercentual > 0) {
+      console.log('💰 Aplicando desconto de:', this.eventoSelecionado.descontoPercentual + '%');
       
-      // Limpar dados de edição
-      this.vendaEdicao = null;
-      this.itensEdicao = [];
+      // 🎯 VERIFICAR SE JÁ EXISTEM PRODUTOS para recalcular tudo
+      const temProdutos = this.itensFormArray.controls.some(item => 
+        item.get('produtoId')?.value && item.get('precoUnitario')?.value > 0
+      );
       
-      // Limpar instância global
-      delete (window as any).vendaComponentInstance;
-    };
-    
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-    
-    modal.querySelector('.btn-close')?.addEventListener('click', closeModal);
-    modal.querySelector('#btnFechar')?.addEventListener('click', closeModal);
-  }
-
-  // Método para alterar status de venda
-  async alterarStatusVenda(venda: Venda, novoStatus: string, observacoes?: string): Promise<void> {
-    try {
-      if (!venda.id) {
-        this.errorMessage = 'ID da venda não encontrado.';
-        return;
-      }
-
-      const vendaAtualizada = await this.vendaService.atualizarStatusVenda(venda.id, novoStatus, observacoes).toPromise();
-      
-      if (vendaAtualizada) {
-        // Atualizar a venda na lista
-        const index = this.vendas.findIndex(v => v.id === venda.id);
-        if (index !== -1) {
-          this.vendas[index] = { ...this.vendas[index], status: novoStatus as any };
-        }
-        
-        this.successMessage = `Status da venda alterado para ${this.getStatusText(novoStatus)} com sucesso!`;
-        setTimeout(() => this.clearMessages(), 5000);
-      }
-    } catch (error) {
-      console.error('Erro ao alterar status da venda:', error);
-      this.errorMessage = 'Erro ao alterar status da venda.';
-      setTimeout(() => this.clearMessages(), 5000);
-    }
-  }
-
-  // Método para exibir modal de alteração de status
-  mostrarModalAlterarStatus(venda: Venda): void {
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.innerHTML = `
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-arrow-repeat me-2"></i>
-              Alterar Status da Venda #${venda.id}
-            </h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Status Atual:</label>
-              <p class="form-control-plaintext">
-                <span class="badge ${this.getStatusBadgeClass(venda.status)}">
-                  ${this.getStatusText(venda.status)}
-                </span>
-              </p>
-            </div>
-            
-            <div class="mb-3">
-              <label for="novoStatus" class="form-label fw-semibold">Novo Status:</label>
-              <select class="form-select" id="novoStatus">
-                ${this.statusVenda.map(status => `
-                  <option value="${status}" ${status === venda.status ? 'selected' : ''}>
-                    ${this.getStatusText(status)}
-                  </option>
-                `).join('')}
-              </select>
-            </div>
-            
-            <div class="mb-3">
-              <label for="observacoesStatus" class="form-label fw-semibold">Observações (opcional):</label>
-              <textarea class="form-control" id="observacoesStatus" rows="3" 
-                        placeholder="Informe o motivo da alteração do status..."></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="btnConfirmarStatus">
-              <i class="bi bi-check-circle me-1"></i>Alterar Status
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Configurar eventos
-    const btnConfirmar = modal.querySelector('#btnConfirmarStatus') as HTMLButtonElement;
-    const selectStatus = modal.querySelector('#novoStatus') as HTMLSelectElement;
-    const textareaObservacoes = modal.querySelector('#observacoesStatus') as HTMLTextAreaElement;
-
-    btnConfirmar.addEventListener('click', async () => {
-      const novoStatus = selectStatus.value;
-      const observacoes = textareaObservacoes.value.trim();
-
-      if (novoStatus === venda.status) {
-        alert('O status selecionado é o mesmo status atual da venda.');
-        return;
-      }
-
-      btnConfirmar.disabled = true;
-      btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Alterando...';
-
-      await this.alterarStatusVenda(venda, novoStatus, observacoes);
-
-      // Fechar modal
-      modal.remove();
-      document.querySelector('.modal-backdrop')?.remove();
-      document.body.classList.remove('modal-open');
-    });
-
-    // Mostrar modal
-    const bsModal = new (window as any).bootstrap.Modal(modal);
-    bsModal.show();
-
-    // Limpar modal ao fechar
-    modal.addEventListener('hidden.bs.modal', () => {
-      modal.remove();
-    });
-  }
-
-  imprimirVenda(venda: Venda): void {
-    const printWindow = window.open('', '_blank');
-    
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Comprovante de Venda #${venda.id}</title>
-            <style>
-              body { 
-                font-family: Arial, sans-serif; 
-                margin: 0; 
-                padding: 20px; 
-                color: #333;
-              }
-              .header { 
-                text-align: center; 
-                margin-bottom: 30px; 
-                border-bottom: 2px solid #ff6b35;
-                padding-bottom: 20px;
-              }
-              .logo { 
-                font-size: 28px; 
-                font-weight: bold; 
-                color: #ff6b35; 
-                margin-bottom: 10px;
-              }
-              .company-info { 
-                color: #666; 
-                font-size: 14px;
-                margin-bottom: 5px;
-              }
-              .venda-info { 
-                display: flex; 
-                justify-content: space-between; 
-                margin: 20px 0; 
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 5px;
-              }
-              .info-group { 
-                flex: 1; 
-              }
-              .info-label { 
-                font-weight: bold; 
-                color: #ff6b35; 
-                font-size: 12px;
-                text-transform: uppercase;
-                margin-bottom: 5px;
-              }
-              .info-value { 
-                font-size: 14px; 
-                margin-bottom: 10px;
-              }
-              table { 
-                width: 100%; 
-                border-collapse: collapse; 
-                margin: 20px 0; 
-              }
-              th, td { 
-                border: 1px solid #ddd; 
-                padding: 10px; 
-                text-align: left; 
-              }
-              th { 
-                background-color: #ff6b35; 
-                color: white; 
-                font-weight: bold; 
-              }
-              .text-right { text-align: right; }
-              .total-section { 
-                margin-top: 20px; 
-                text-align: right;
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 5px;
-              }
-              .total-line { 
-                display: flex; 
-                justify-content: space-between; 
-                margin: 5px 0; 
-                padding: 5px 0;
-              }
-              .total-final { 
-                font-size: 18px; 
-                font-weight: bold; 
-                color: #ff6b35;
-                border-top: 2px solid #ff6b35;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .footer { 
-                margin-top: 40px; 
-                text-align: center; 
-                color: #666; 
-                font-size: 12px;
-                border-top: 1px solid #ddd;
-                padding-top: 20px;
-              }
-              @media print { 
-                .no-print { display: none; }
-                body { margin: 0; padding: 15px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="logo">Sistema de Estoque e Vendas</div>
-              <div class="company-info">CNPJ: 12.345.678/0001-90</div>
-              <div class="company-info">Endereço: Rua das Vendas, 123 - Centro - São Paulo/SP</div>
-              <div class="company-info">Telefone: (11) 3333-4444 | Email: contato@sistema.com</div>
-            </div>
-            
-            <div class="venda-info">
-              <div class="info-group">
-                <div class="info-label">Número da Venda</div>
-                <div class="info-value">#${venda.id}</div>
-                
-                <div class="info-label">Data/Hora</div>
-                <div class="info-value">${this.formatarData(venda.dataVenda)}</div>
-                
-                <div class="info-label">Status</div>
-                <div class="info-value">${this.getStatusText(venda.status)}</div>
-              </div>
-              
-              <div class="info-group">
-                <div class="info-label">Cliente</div>
-                <div class="info-value">${venda.clienteNome}</div>
-                
-                ${venda.clienteEmail ? `
-                  <div class="info-label">E-mail</div>
-                  <div class="info-value">${venda.clienteEmail}</div>
-                ` : ''}
-                
-                ${venda.clienteTelefone ? `
-                  <div class="info-label">Telefone</div>
-                  <div class="info-value">${venda.clienteTelefone}</div>
-                ` : ''}
-              </div>
-              
-              <div class="info-group">
-                <div class="info-label">Forma de Pagamento</div>
-                <div class="info-value">${this.getFormaPagamentoText(venda.formaPagamento)}</div>
-                
-                <div class="info-label">Vendedor</div>
-                <div class="info-value">Administrador</div>
-              </div>
-            </div>
-            
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 50%">Produto</th>
-                  <th style="width: 15%; text-align: center">Qtd</th>
-                  <th style="width: 17.5%; text-align: right">Preço Unit.</th>
-                  <th style="width: 17.5%; text-align: right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${venda.itens.map(item => `
-                  <tr>
-                    <td>${item.produtoNome}</td>
-                    <td style="text-align: center">${item.quantidade}</td>
-                    <td style="text-align: right">${this.formatarMoeda(item.precoUnitario)}</td>
-                    <td style="text-align: right">${this.formatarMoeda(item.subtotal)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            
-            <div class="total-section">
-              <div class="total-line">
-                <span>Subtotal:</span>
-                <span>${this.formatarMoeda(venda.subtotal)}</span>
-              </div>
-              ${venda.desconto > 0 ? `
-                <div class="total-line">
-                  <span>Desconto:</span>
-                  <span>- ${this.formatarMoeda(venda.desconto)}</span>
-                </div>
-              ` : ''}
-              <div class="total-line total-final">
-                <span>TOTAL:</span>
-                <span>${this.formatarMoeda(venda.total)}</span>
-              </div>
-            </div>
-            
-            ${venda.observacoes ? `
-              <div style="margin-top: 20px;">
-                <div class="info-label">Observações:</div>
-                <div style="padding: 10px; background: #f8f9fa; border-radius: 5px; margin-top: 5px;">
-                  ${venda.observacoes}
-                </div>
-              </div>
-            ` : ''}
-            
-            <div class="footer">
-              <p><strong>Obrigado pela preferência!</strong></p>
-              <p>Comprovante emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
-              <p>Sistema de Estoque e Vendas - Versão 1.0</p>
-            </div>
-          </body>
-        </html>
-      `);
-      
-      printWindow.document.close();
-      
-      // Aguardar o carregamento antes de imprimir
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
-    }
-  }
-
-  private createVendaModal(venda: Venda, modo: 'visualizar' | 'editar'): HTMLElement {
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.setAttribute('tabindex', '-1');
-    
-    const isEdicao = modo === 'editar';
-    
-    // Se for edição, inicializar dados de edição
-    if (isEdicao) {
-      this.vendaEdicao = { ...venda };
-      this.itensEdicao = [...venda.itens];
-    }
-    
-    modal.innerHTML = `
-      <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-${isEdicao ? 'pencil' : 'eye'} me-2"></i>
-              ${isEdicao ? 'Editar' : 'Visualizar'} Venda #${venda.id}
-            </h5>
-            <button type="button" class="btn-close btn-close-white"></button>
-          </div>
-          
-          <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-            <!-- Informações do Cliente -->
-            <div class="row mb-3">
-              <div class="col-12">
-                <h6 class="text-primary border-bottom pb-2">
-                  <i class="bi bi-person me-2"></i>Dados do Cliente
-                </h6>
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">Nome:</label>
-                ${isEdicao ? `
-                  <input type="text" class="form-control" id="clienteNome" value="${venda.clienteNome}">
-                ` : `
-                  <p class="form-control-plaintext">${venda.clienteNome}</p>
-                `}
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">E-mail:</label>
-                ${isEdicao ? `
-                  <input type="email" class="form-control" id="clienteEmail" value="${venda.clienteEmail || ''}">
-                ` : `
-                  <p class="form-control-plaintext">${venda.clienteEmail || 'Não informado'}</p>
-                `}
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">Telefone:</label>
-                ${isEdicao ? `
-                  <input type="tel" class="form-control" id="clienteTelefone" value="${venda.clienteTelefone || ''}">
-                ` : `
-                  <p class="form-control-plaintext">${venda.clienteTelefone || 'Não informado'}</p>
-                `}
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">Status:</label>
-                ${isEdicao ? `
-                  <select class="form-select" id="status">
-                    ${this.statusVenda.map(status => `
-                      <option value="${status}" ${venda.status === status ? 'selected' : ''}>
-                        ${this.getStatusText(status)}
-                      </option>
-                    `).join('')}
-                  </select>
-                ` : `
-                  <p class="form-control-plaintext">
-                    <span class="badge ${this.getStatusBadgeClass(venda.status)}">
-                      ${this.getStatusText(venda.status)}
-                    </span>
-                  </p>
-                `}
-              </div>
-            </div>
-            
-            <!-- Itens da Venda -->
-            <div class="row mb-3">
-              <div class="col-12">
-                <h6 class="text-primary border-bottom pb-2">
-                  <i class="bi bi-basket me-2"></i>Itens da Venda
-                  ${isEdicao ? `
-                    <button type="button" class="btn btn-success btn-sm float-end" id="btnAdicionarItem">
-                      <i class="bi bi-plus-circle me-1"></i>Adicionar Item
-                    </button>
-                  ` : ''}
-                </h6>
-                
-                ${isEdicao ? `
-                  <!-- Área para adicionar novo item -->
-                  <div class="card card-body bg-light mb-3" id="areaAdicionarItem" style="display: none;">
-                    <div class="row align-items-end">
-                      <div class="col-md-5">
-                        <label class="form-label fw-semibold">Produto:</label>
-                        <select class="form-select" id="novoProdutoSelect">
-                          <option value="">Selecione um produto</option>
-                          ${this.produtos.map(produto => `
-                            <option value="${produto.id}" data-preco="${produto.preco}" data-estoque="${produto.quantidade}">
-                              ${produto.nome} - ${this.formatarMoeda(produto.preco)} (Estoque: ${produto.quantidade})
-                            </option>
-                          `).join('')}
-                        </select>
-                      </div>
-                      <div class="col-md-2">
-                        <label class="form-label fw-semibold">Quantidade:</label>
-                        <input type="number" class="form-control" id="novaQuantidadeInput" min="1" value="1">
-                      </div>
-                      <div class="col-md-3">
-                        <label class="form-label fw-semibold">Preço Unit.:</label>
-                        <input type="number" class="form-control" id="novoPrecoInput" step="0.01" min="0" readonly>
-                      </div>
-                      <div class="col-md-2">
-                        <button type="button" class="btn btn-primary btn-sm w-100" id="confirmarAdicionarItem">
-                          <i class="bi bi-check"></i> Confirmar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ` : ''}
-                
-                <div class="table-responsive">
-                  <table class="table table-sm" id="tabelaItens">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Produto</th>
-                        <th class="text-center">Qtd</th>
-                        <th class="text-end">Preço Unit.</th>
-                        <th class="text-end">Subtotal</th>
-                        ${isEdicao ? '<th class="text-center">Ações</th>' : ''}
-                      </tr>
-                    </thead>
-                    <tbody id="tbodyItens">
-                      ${this.renderizarItensTabela(venda.itens, isEdicao)}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Resumo Financeiro -->
-            <div class="row mb-3">
-              <div class="col-12">
-                <h6 class="text-primary border-bottom pb-2">
-                  <i class="bi bi-calculator me-2"></i>Resumo Financeiro
-                </h6>
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">Forma de Pagamento:</label>
-                ${isEdicao ? `
-                  <select class="form-select" id="formaPagamento">
-                    ${this.formasPagamento.map(forma => `
-                      <option value="${forma}" ${venda.formaPagamento === forma ? 'selected' : ''}>
-                        ${this.getFormaPagamentoText(forma)}
-                      </option>
-                    `).join('')}
-                  </select>
-                ` : `
-                  <p class="form-control-plaintext">${this.getFormaPagamentoText(venda.formaPagamento)}</p>
-                `}
-              </div>
-              
-              <div class="col-md-6">
-                <label class="form-label fw-semibold">Data/Hora:</label>
-                <p class="form-control-plaintext">${this.formatarData(venda.dataVenda)}</p>
-              </div>
-              
-              ${isEdicao ? `
-                <div class="col-md-6">
-                  <label class="form-label fw-semibold">Desconto (%):</label>
-                  <input type="number" class="form-control" id="percentualDesconto" 
-                         min="0" max="100" step="0.01" value="${venda.percentualDesconto || 0}">
-                </div>
-              ` : ''}
-              
-              <div class="col-12">
-                <div class="bg-light p-3 rounded" id="resumoFinanceiro">
-                  ${this.renderizarResumoFinanceiro(venda)}
-                </div>
-              </div>
-            </div>
-            
-            <!-- Observações -->
-            ${venda.observacoes || isEdicao ? `
-              <div class="row">
-                <div class="col-12">
-                  <label class="form-label fw-semibold">Observações:</label>
-                  ${isEdicao ? `
-                    <textarea class="form-control" id="observacoes" rows="3">${venda.observacoes || ''}</textarea>
-                  ` : `
-                    <p class="form-control-plaintext">${venda.observacoes || 'Nenhuma observação'}</p>
-                  `}
-                </div>
-              </div>
-            ` : ''}
-          </div>
-          
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="btnFechar">
-              <i class="bi bi-x-circle me-1"></i>Fechar
-            </button>
-            ${isEdicao ? `
-              <button type="button" class="btn btn-primary" id="btnSalvar">
-                <i class="bi bi-check-circle me-1"></i>Salvar Alterações
-              </button>
-            ` : ''}
-          </div>
-        </div>
-      </div>
-    `;
-    
-    // Configurar eventos se for edição
-    if (isEdicao) {
-      this.configurarEventosEdicao(modal);
-    }
-    
-    return modal;
-  }
-
-  // Métodos auxiliares para edição de vendas
-  private renderizarItensTabela(itens: ItemVenda[], isEdicao: boolean): string {
-    return itens.map((item, index) => `
-      <tr>
-        <td>${item.produtoNome}</td>
-        <td class="text-center">
-          ${isEdicao ? `
-            <input type="number" class="form-control form-control-sm text-center" 
-                   value="${item.quantidade}" min="1" 
-                   onchange="window.vendaComponentInstance.atualizarQuantidadeItem(${index}, this.value)"
-                   style="width: 80px; margin: 0 auto;">
-          ` : item.quantidade}
-        </td>
-        <td class="text-end">${this.formatarMoeda(item.precoUnitario)}</td>
-        <td class="text-end fw-semibold">${this.formatarMoeda(item.subtotal)}</td>
-        ${isEdicao ? `
-          <td class="text-center">
-            <button type="button" class="btn btn-danger btn-sm" 
-                    onclick="window.vendaComponentInstance.removerItem(${index})"
-                    title="Remover item">
-              <i class="bi bi-trash"></i>
-            </button>
-          </td>
-        ` : ''}
-      </tr>
-    `).join('');
-  }
-
-  private renderizarResumoFinanceiro(venda: Venda): string {
-    const subtotal = this.vendaEdicao ? this.calcularSubtotalEdicao() : venda.subtotal;
-    const percentualDesconto = this.vendaEdicao?.percentualDesconto || 0;
-    const desconto = (subtotal * percentualDesconto) / 100;
-    const total = subtotal - desconto;
-
-    return `
-      <div class="d-flex justify-content-between mb-2">
-        <span>Subtotal:</span>
-        <span class="fw-semibold" id="subtotalValue">${this.formatarMoeda(subtotal)}</span>
-      </div>
-      ${desconto > 0 ? `
-        <div class="d-flex justify-content-between mb-2">
-          <span>Desconto (${percentualDesconto}%):</span>
-          <span class="text-danger" id="descontoValue">- ${this.formatarMoeda(desconto)}</span>
-        </div>
-      ` : ''}
-      <div class="d-flex justify-content-between border-top pt-2">
-        <span class="fw-bold fs-5">Total:</span>
-        <span class="fw-bold fs-5 text-success" id="totalValue">${this.formatarMoeda(total)}</span>
-      </div>
-    `;
-  }
-
-  private configurarEventosEdicao(modal: HTMLElement): void {
-    // Expor instância global para callbacks inline
-    (window as any).vendaComponentInstance = this;
-
-    // Evento para mostrar/ocultar área de adicionar item
-    const btnAdicionarItem = modal.querySelector('#btnAdicionarItem');
-    const areaAdicionarItem = modal.querySelector('#areaAdicionarItem') as HTMLElement;
-    
-    btnAdicionarItem?.addEventListener('click', () => {
-      areaAdicionarItem.style.display = areaAdicionarItem.style.display === 'none' ? 'block' : 'none';
-    });
-
-    // Evento para atualizar preço quando selecionar produto
-    const produtoSelect = modal.querySelector('#novoProdutoSelect') as HTMLSelectElement;
-    const precoInput = modal.querySelector('#novoPrecoInput') as HTMLInputElement;
-    
-    produtoSelect?.addEventListener('change', () => {
-      const selectedOption = produtoSelect.selectedOptions[0];
-      if (selectedOption) {
-        const preco = selectedOption.getAttribute('data-preco');
-        precoInput.value = preco || '0';
-      }
-    });
-
-    // Evento para confirmar adição de item
-    const btnConfirmarAdicionar = modal.querySelector('#confirmarAdicionarItem');
-    btnConfirmarAdicionar?.addEventListener('click', () => {
-      this.adicionarNovoItem(modal);
-    });
-
-    // Evento para atualizar desconto
-    const percentualDescontoInput = modal.querySelector('#percentualDesconto') as HTMLInputElement;
-    percentualDescontoInput?.addEventListener('input', () => {
-      this.atualizarResumoFinanceiro(modal);
-    });
-
-    // Evento para salvar alterações
-    const btnSalvar = modal.querySelector('#btnSalvar');
-    btnSalvar?.addEventListener('click', () => {
-      this.salvarEdicaoVendaCompleta(modal);
-    });
-  }
-
-  private calcularSubtotalEdicao(): number {
-    if (!this.itensEdicao || this.itensEdicao.length === 0) {
-      return 0;
-    }
-    return this.itensEdicao.reduce((total, item) => total + item.subtotal, 0);
-  }
-
-  private atualizarResumoFinanceiro(modal: HTMLElement): void {
-    if (!this.vendaEdicao) return;
-
-    const percentualDescontoInput = modal.querySelector('#percentualDesconto') as HTMLInputElement;
-    const percentualDesconto = parseFloat(percentualDescontoInput?.value || '0');
-    
-    this.vendaEdicao.percentualDesconto = percentualDesconto;
-    
-    const subtotal = this.calcularSubtotalEdicao();
-    const desconto = (subtotal * percentualDesconto) / 100;
-    const total = subtotal - desconto;
-
-    // Atualizar valores na tela
-    const subtotalElement = modal.querySelector('#subtotalValue');
-    const descontoElement = modal.querySelector('#descontoValue');
-    const totalElement = modal.querySelector('#totalValue');
-
-    if (subtotalElement) subtotalElement.textContent = this.formatarMoeda(subtotal);
-    if (totalElement) totalElement.textContent = this.formatarMoeda(total);
-    
-    if (desconto > 0 && descontoElement) {
-      descontoElement.textContent = `- ${this.formatarMoeda(desconto)}`;
-    }
-  }
-
-  atualizarQuantidadeItem(index: number, novaQuantidade: string): void {
-    const quantidade = parseInt(novaQuantidade);
-    if (quantidade > 0 && this.itensEdicao[index]) {
-      this.itensEdicao[index].quantidade = quantidade;
-      this.itensEdicao[index].subtotal = quantidade * this.itensEdicao[index].precoUnitario;
-      
-      // Atualizar a tabela e resumo financeiro
-      this.atualizarTabelaItens();
-      this.atualizarResumoFinanceiroModal();
-    }
-  }
-
-  removerItem(index: number): void {
-    if (this.itensEdicao.length > 1) {
-      this.itensEdicao.splice(index, 1);
-      this.atualizarTabelaItens();
-      this.atualizarResumoFinanceiroModal();
-    } else {
-      this.errorMessage = 'Uma venda deve ter pelo menos um item.';
-      setTimeout(() => this.clearMessages(), 3000);
-    }
-  }
-
-  private adicionarNovoItem(modal: HTMLElement): void {
-    const produtoSelect = modal.querySelector('#novoProdutoSelect') as HTMLSelectElement;
-    const quantidadeInput = modal.querySelector('#novaQuantidadeInput') as HTMLInputElement;
-    const precoInput = modal.querySelector('#novoPrecoInput') as HTMLInputElement;
-
-    const produtoId = parseInt(produtoSelect.value);
-    const quantidade = parseInt(quantidadeInput.value);
-    const preco = parseFloat(precoInput.value);
-
-    if (!produtoId || quantidade <= 0 || preco <= 0) {
-      this.errorMessage = 'Preencha todos os campos corretamente.';
-      setTimeout(() => this.clearMessages(), 3000);
-      return;
-    }
-
-    // Verificar se o produto já existe na venda
-    const itemExistente = this.itensEdicao.find(item => item.produtoId === produtoId);
-    if (itemExistente) {
-      itemExistente.quantidade += quantidade;
-      itemExistente.subtotal = itemExistente.quantidade * itemExistente.precoUnitario;
-    } else {
-      const produto = this.produtos.find(p => p.id === produtoId);
-      if (produto) {
-        const novoItem: ItemVenda = {
-          produtoId: produtoId,
-          produtoNome: produto.nome,
-          quantidade: quantidade,
-          precoUnitario: preco,
-          desconto: 0,
-          percentualDesconto: 0,
-          subtotal: quantidade * preco,
-          totalComDesconto: quantidade * preco
-        };
-        this.itensEdicao.push(novoItem);
-      }
-    }
-
-    // Limpar formulário de adição
-    produtoSelect.value = '';
-    quantidadeInput.value = '1';
-    precoInput.value = '';
-
-    // Ocultar área de adição
-    const areaAdicionarItem = modal.querySelector('#areaAdicionarItem') as HTMLElement;
-    areaAdicionarItem.style.display = 'none';
-
-    // Atualizar tabela e resumo
-    this.atualizarTabelaItens();
-    this.atualizarResumoFinanceiroModal();
-  }
-
-  private atualizarTabelaItens(): void {
-    const tbody = document.querySelector('#tbodyItens');
-    if (tbody && this.itensEdicao) {
-      tbody.innerHTML = this.renderizarItensTabela(this.itensEdicao, true);
-    }
-  }
-
-  private atualizarResumoFinanceiroModal(): void {
-    const resumoElement = document.querySelector('#resumoFinanceiro');
-    if (resumoElement && this.vendaEdicao) {
-      resumoElement.innerHTML = this.renderizarResumoFinanceiro(this.vendaEdicao);
-    }
-  }
-
-  private salvarEdicaoVendaCompleta(modal: HTMLElement): void {
-    try {
-      if (!this.vendaEdicao) return;
-
-      // Coletar dados do modal
-      const clienteNome = (modal.querySelector('#clienteNome') as HTMLInputElement)?.value;
-      const clienteEmail = (modal.querySelector('#clienteEmail') as HTMLInputElement)?.value;
-      const clienteTelefone = (modal.querySelector('#clienteTelefone') as HTMLInputElement)?.value;
-      const status = (modal.querySelector('#status') as HTMLSelectElement)?.value;
-      const formaPagamento = (modal.querySelector('#formaPagamento') as HTMLSelectElement)?.value;
-      const observacoes = (modal.querySelector('#observacoes') as HTMLTextAreaElement)?.value;
-      const percentualDesconto = parseFloat((modal.querySelector('#percentualDesconto') as HTMLInputElement)?.value || '0');
-
-      // Calcular valores finais
-      const subtotal = this.calcularSubtotalEdicao();
-      const desconto = (subtotal * percentualDesconto) / 100;
-      const total = subtotal - desconto;
-
-      // Atualizar venda na lista
-      const vendaIndex = this.vendas.findIndex(v => v.id === this.vendaEdicao!.id);
-      if (vendaIndex !== -1) {
-        this.vendas[vendaIndex] = {
-          ...this.vendas[vendaIndex],
-          clienteNome: clienteNome || this.vendaEdicao.clienteNome,
-          clienteEmail: clienteEmail || this.vendaEdicao.clienteEmail,
-          clienteTelefone: clienteTelefone || this.vendaEdicao.clienteTelefone,
-          status: status || this.vendaEdicao.status,
-          formaPagamento: formaPagamento || this.vendaEdicao.formaPagamento,
-          observacoes: observacoes || this.vendaEdicao.observacoes,
-          percentualDesconto: percentualDesconto,
-          itens: [...this.itensEdicao],
-          subtotal: subtotal,
-          desconto: desconto,
-          total: total
-        };
-        
-        this.successMessage = 'Venda atualizada com sucesso!';
-        
-        // Fechar modal
-        modal.remove();
-        document.querySelector('.modal-backdrop')?.remove();
-        document.body.classList.remove('modal-open');
-        
-        // Limpar dados de edição
-        this.vendaEdicao = null;
-        this.itensEdicao = [];
-        
-        // Limpar mensagem após 5 segundos
+      if (temProdutos) {
+        console.log('🎯 Produtos já existem, recalculando com desconto cumulativo...');
+        // Se já tem produtos, recalcular descontos cumulativos
         setTimeout(() => {
-          this.clearMessages();
-        }, 5000);
+          this.recalcularDescontosCumulativos();
+        }, 20);
+      } else {
+        console.log('🎯 Nenhum produto ainda, desconto será aplicado quando produtos forem adicionados');
+        // Se não tem produtos ainda, apenas calcular total
+        setTimeout(() => {
+          this.calcularTotalGeral();
+        }, 50);
       }
-    } catch (error) {
-      console.error('Erro ao salvar edição:', error);
-      this.errorMessage = 'Erro ao salvar alterações da venda.';
-    }
-  }
-
-  // Métodos para filtros por boxes
-  aplicarFiltroVendasHoje(): void {
-    if (this.activeFilterBox === 'hoje') {
-      // Se já está ativo, desativa o filtro
-      this.activeFilterBox = '';
-      this.dateFilter = '';
     } else {
-      // Ativa o filtro para vendas de hoje
-      this.activeFilterBox = 'hoje';
-      this.dateFilter = 'hoje';
+      console.log('🚫 Removendo desconto do evento');
+      this.vendaForm.patchValue({ desconto: 0 }, { emitEvent: false });
+      setTimeout(() => {
+        this.calcularTotalGeral();
+      }, 10);
     }
   }
 
-  aplicarFiltroVendasMes(): void {
-    if (this.activeFilterBox === 'mes') {
-      // Se já está ativo, desativa o filtro
-      this.activeFilterBox = '';
-      this.dateFilter = '';
-    } else {
-      // Ativa o filtro para vendas do mês
-      this.activeFilterBox = 'mes';
-      this.dateFilter = 'mes';
+  aplicarDescontoEvento(): void {
+    console.log('🎆 aplicarDescontoEvento chamado');
+    if (this.eventoSelecionado) {
+      const subtotal = this.getSubtotal();
+      const descontoEvento = (subtotal * (this.eventoSelecionado?.descontoPercentual || 0)) / 100;
+      
+      // Verificar se há desconto percentual final para ser cumulativo
+      const percentualDesconto = this.vendaForm.get('percentualDesconto')?.value || 0;
+      let descontoPercentualFinal = 0;
+      if (percentualDesconto > 0) {
+        const subtotalComDescontoItens = this.getSubtotalComDescontoItens();
+        descontoPercentualFinal = (subtotalComDescontoItens * percentualDesconto) / 100;
+      }
+      
+      // SOMAR os descontos para serem cumulativos
+      const descontoTotalCumulativo = descontoEvento + descontoPercentualFinal;
+      
+      console.log('💰 Subtotal:', subtotal);
+      console.log('🎆 Desconto evento:', descontoEvento);
+      console.log('📈 Desconto percentual final:', descontoPercentualFinal);
+      console.log('💰 Desconto total cumulativo:', descontoTotalCumulativo);
+      
+      this.vendaForm.patchValue({ desconto: descontoTotalCumulativo }, { emitEvent: false });
+      
+      // Calcular total geral imediatamente (sem setTimeout para evitar loops)
+      this.calcularTotalGeral();
+      console.log('💰 Total geral atualizado após desconto cumulativo');
     }
   }
 
-  aplicarFiltroPendentes(): void {
-    if (this.activeFilterBox === 'pendentes') {
-      // Se já está ativo, desativa o filtro
-      this.activeFilterBox = '';
-      this.statusFilter = '';
-    } else {
-      // Ativa o filtro para vendas pendentes
-      this.activeFilterBox = 'pendentes';
-      this.statusFilter = 'Pendente';
-    }
-  }
+  getEventosUnicos(): string[] { return Array.from(new Set(this.vendas.map(v => (v as any).eventoNome).filter(Boolean))); }
 
-  // Método auxiliar para verificar se um box está ativo
-  isBoxActive(filterType: string): boolean {
-    return this.activeFilterBox === filterType;
-  }
+  // ===== MÉTODOS PARA DEVOLUÇÃO E TROCA =====
 
-  // Método para limpar todos os filtros
-  limparTodosFiltros(): void {
-    this.searchTerm = '';
-    this.statusFilter = '';
-    this.dateFilter = '';
-    this.clienteFilter = '';
-    this.eventoFilter = '';
-    this.precoOrder = '';
-    this.activeFilterBox = '';
-  }
-
-  // Novo método para filtrar por evento
-  aplicarFiltroEvento(evento: string): void {
-    this.eventoFilter = evento;
-    this.activeFilterBox = `evento-${evento}`;
-  }
-
-  // Novo método para ordenar por preço
-  aplicarOrdemPreco(ordem: string): void {
-    this.precoOrder = ordem;
-    this.activeFilterBox = `preco-${ordem}`;
-  }
-
-  // Método para obter lista de eventos únicos
-  getEventosUnicos(): string[] {
-    const eventos = this.vendas
-      .map(venda => venda.evento)
-      .filter(evento => evento && evento.trim() !== '')
-      .filter((evento, index, arr) => arr.indexOf(evento) === index);
-    return eventos as string[];
-  }
-
-  // Método para aplicar filtro por evento específico
-  filtrarPorEvento(evento: string): void {
-    this.eventoFilter = evento;
-    this.loadVendas(); // Recarregar com filtro
-  }
-
-  // Métodos para desconto por produto
-  aplicarDescontoProduto(item: ItemVenda, percentual: number): void {
-    item.percentualDesconto = percentual;
-    item.desconto = (item.subtotal * percentual) / 100;
-    item.totalComDesconto = item.subtotal - item.desconto;
-    this.calcularTotais();
-  }
-
-  aplicarDescontoValorProduto(item: ItemVenda, valor: number): void {
-    item.desconto = valor;
-    item.percentualDesconto = item.subtotal > 0 ? (valor / item.subtotal) * 100 : 0;
-    item.totalComDesconto = item.subtotal - item.desconto;
-    this.calcularTotais();
-  }
-
-  calcularTotais(): void {
-    const subtotal = this.itensEdicao.reduce((sum, item) => sum + item.subtotal, 0);
-    const totalDesconto = this.itensEdicao.reduce((sum, item) => sum + item.desconto, 0);
-    const total = this.itensEdicao.reduce((sum, item) => sum + item.totalComDesconto, 0);
-
-    // Atualizar campos do formulário se estiver editando
-    if (this.vendaEdicao) {
-      this.vendaForm.patchValue({
-        subtotal: subtotal,
-        desconto: totalDesconto,
-        total: total
-      });
-    }
-  }
-
-  // Métodos para desconto por item no formulário
-  aplicarDescontoPorcentual(index: number, event: any): void {
-    const percentual = parseFloat(event.target.value) || 0;
-    
-    // Validação: percentual deve estar entre 0 e 100
-    if (percentual < 0) {
-      event.target.value = 0;
-      this.errorMessage = 'Desconto não pode ser negativo';
-      setTimeout(() => this.clearMessages(), 3000);
+  abrirModalDevolucao(venda: VendaResponse): void {
+    if (venda.status !== 'CONFIRMADA' && venda.status !== 'ENTREGUE') {
+      this.errorMessage = 'Só é possível devolver vendas confirmadas ou entregues.';
       return;
     }
-    if (percentual > 100) {
-      event.target.value = 100;
-      this.errorMessage = 'Desconto não pode ser maior que 100%';
-      setTimeout(() => this.clearMessages(), 3000);
+
+    this.vendaSelecionada = venda;
+    this.showModalDevolucao = true;
+    this.resetarFormularioDevolucao();
+  }
+
+  abrirModalTroca(venda: VendaResponse): void {
+    if (venda.status !== 'CONFIRMADA' && venda.status !== 'ENTREGUE') {
+      this.errorMessage = 'Só é possível trocar vendas confirmadas ou entregues.';
       return;
     }
+
+    this.vendaSelecionada = venda;
+    this.showModalTroca = true;
+  }
+
+  fecharModalDevolucao(): void {
+    this.showModalDevolucao = false;
+    this.vendaSelecionada = null;
+    this.resetarFormularioDevolucao();
+  }
+
+  fecharModalTroca(): void {
+    this.showModalTroca = false;
+    this.vendaSelecionada = null;
+  }
+
+  fecharTodosModais(): void {
+    this.fecharCadastroCliente();
+    this.fecharModalDevolucao();
+    this.fecharModalTroca();
+  }
+
+  resetarFormularioDevolucao(): void {
+    this.devolucaoForm.reset();
+    this.itensSelecionadosDevolucao = {};
+    this.quantidadesDevolucao = {};
+    this.statusQualidadeItens = {};
+    this.descontoItens = {};
+  }
+
+  // Métodos para gerenciar itens selecionados
+  isItemSelecionado(itemId: number): boolean {
+    return !!this.itensSelecionadosDevolucao[itemId];
+  }
+
+  toggleItemDevolucao(item: any, event: any): void {
+    const isChecked = event.target.checked;
+    this.itensSelecionadosDevolucao[item.id] = isChecked;
     
-    const item = this.itensFormArray.at(index);
-    if (item) {
-      const subtotal = item.get('subtotal')?.value || 0;
-      const desconto = (subtotal * percentual) / 100;
-      
-      item.patchValue({
-        percentualDesconto: percentual,
-        desconto: desconto,
-        totalComDesconto: subtotal - desconto
-      });
-      
-      this.calcularTotaisFormulario();
+    if (isChecked) {
+      this.quantidadesDevolucao[item.id] = 1;
+      this.statusQualidadeItens[item.id] = 'NORMAL';
+      this.descontoItens[item.id] = 0;
+    } else {
+      delete this.quantidadesDevolucao[item.id];
+      delete this.statusQualidadeItens[item.id];
+      delete this.descontoItens[item.id];
     }
   }
 
-  calcularTotalItem(index: number): number {
-    const item = this.itensFormArray.at(index);
-    if (item) {
-      // CORREÇÃO: usar o campo totalComDesconto que já tem o desconto aplicado
-      return item.get('totalComDesconto')?.value || 0;
+  getQuantidadeDevolucao(itemId: number): number {
+    return this.quantidadesDevolucao[itemId] || 1;
+  }
+
+  setQuantidadeDevolucao(itemId: number, event: any): void {
+    const quantidade = parseInt(event.target.value) || 1;
+    this.quantidadesDevolucao[itemId] = quantidade;
+  }
+
+  getStatusQualidade(itemId: number): string {
+    return this.statusQualidadeItens[itemId] || 'NORMAL';
+  }
+
+  setStatusQualidade(itemId: number, event: any): void {
+    const status = event.target.value;
+    this.statusQualidadeItens[itemId] = status;
+    
+    // Se mudou para defeituoso, define desconto padrão
+    if (status === 'DEFEITUOSO' && !this.descontoItens[itemId]) {
+      this.descontoItens[itemId] = 30;
     }
-    return 0;
   }
 
-  calcularTotaisFormulario(): void {
-    const itens = this.itensFormArray.controls;
-    const subtotal = itens.reduce((sum, item) => sum + (item.get('subtotal')?.value || 0), 0);
-    const totalDesconto = itens.reduce((sum, item) => sum + (item.get('desconto')?.value || 0), 0);
-    const total = itens.reduce((sum, item) => sum + ((item.get('subtotal')?.value || 0) - (item.get('desconto')?.value || 0)), 0);
+  getDescontoItem(itemId: number): number {
+    return this.descontoItens[itemId] || 0;
+  }
 
-    this.vendaForm.patchValue({
-      subtotal: subtotal,
-      desconto: totalDesconto,
-      total: total
+  setDescontoItem(itemId: number, event: any): void {
+    const desconto = parseFloat(event.target.value) || 0;
+    this.descontoItens[itemId] = Math.min(Math.max(desconto, 0), 100);
+  }
+
+  temItensSelecionados(): boolean {
+    return Object.values(this.itensSelecionadosDevolucao).some(selected => selected);
+  }
+
+  processarDevolucao(): void {
+    if (this.devolucaoForm.invalid || !this.temItensSelecionados() || !this.vendaSelecionada) {
+      this.errorMessage = 'Preencha todos os campos obrigatórios e selecione pelo menos um item.';
+      return;
+    }
+
+    const itens: ItemDevolucaoRequest[] = [];
+    
+    // Montar array de itens para devolução
+    for (const itemId of Object.keys(this.itensSelecionadosDevolucao)) {
+      if (this.itensSelecionadosDevolucao[parseInt(itemId)]) {
+        const item: ItemDevolucaoRequest = {
+          itemVendaId: parseInt(itemId),
+          quantidade: this.quantidadesDevolucao[parseInt(itemId)] || 1,
+          statusQualidade: this.statusQualidadeItens[parseInt(itemId)] as any || 'NORMAL'
+        };
+
+        if (item.statusQualidade === 'DEFEITUOSO') {
+          item.percentualDesconto = this.descontoItens[parseInt(itemId)] || 0;
+        }
+
+        itens.push(item);
+      }
+    }
+
+    const devolucaoRequest: DevolucaoRequest = {
+      vendaId: this.vendaSelecionada.id,
+      tipoDevolucao: this.devolucaoForm.value.tipoDevolucao,
+      motivo: this.devolucaoForm.value.motivo,
+      observacoes: this.devolucaoForm.value.observacoes,
+      itens: itens
+    };
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.devolucaoService.processarDevolucao(devolucaoRequest).subscribe({
+      next: (response) => {
+        this.isLoading = false;
+        this.successMessage = `Devolução #${response.id} processada com sucesso! Valor devolvido: ${this.formatarMoeda(response.valorTotal)}`;
+        this.fecharModalDevolucao();
+        this.loadVendas(); // Recarregar a lista
+        this.loadStats(); // Recarregar estatísticas
+        
+        setTimeout(() => {
+          this.successMessage = '';
+        }, 7000);
+      },
+      error: (error) => {
+        this.isLoading = false;
+        console.error('❌ Erro ao processar devolução:', error);
+        
+        if (error.error?.message) {
+          this.errorMessage = error.error.message;
+        } else if (error.status === 403) {
+          this.errorMessage = 'Você não tem permissão para processar devoluções.';
+        } else if (error.status === 400) {
+          this.errorMessage = 'Dados inválidos. Verifique as informações e tente novamente.';
+        } else if (error.status === 404) {
+          this.errorMessage = 'Venda não encontrada ou não pode ser devolvida.';
+        } else {
+          this.errorMessage = 'Erro interno do servidor. Tente novamente em alguns minutos.';
+        }
+        
+        setTimeout(() => {
+          this.errorMessage = '';
+        }, 8000);
+      }
     });
-  }
 
-  // Buscar produto por código de barras
-  buscarPorCodigoBarras(codigo: string): void {
-    if (!codigo || codigo.trim() === '') return;
-
-    // TODO: Implementar busca por código de barras no backend
-    console.log('⚠️ Busca por código de barras precisa ser implementada no backend');
-    this.errorMessage = `Funcionalidade de código de barras em desenvolvimento`;
-    setTimeout(() => this.errorMessage = '', 3000);
-    
-    
-  }
-
-  // Adicionar produto automaticamente via código de barras
-  adicionarProdutoAutomatico(produto: any): void {
-    const novoItem = this.createItemFormGroup();
-    novoItem.patchValue({
-      produtoId: produto.id,
-      quantidade: 1,
-      precoUnitario: produto.preco,
-      subtotal: produto.preco,
-      totalComDesconto: produto.preco
-    });
-    
-    this.itensFormArray.push(novoItem);
-    this.calculateTotal();
+    console.log('🔄 Processando devolução:', devolucaoRequest);
   }
 
 }

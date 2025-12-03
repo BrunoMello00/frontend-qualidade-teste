@@ -13,6 +13,7 @@
             <p class="text-muted mb-0">Registre e acompanhe suas vendas</p>
           </div>
           <button 
+            *ngIf="authService.canManageSales()"
             class="btn btn-primary btn-custom" 
             (click)="toggleVendaForm()">
             <i class="bi" [class.bi-plus-circle]="!showVendaForm" [class.bi-x-circle]="showVendaForm" ></i>
@@ -121,7 +122,7 @@
     </div>
 
     <!-- Formulário de Nova Venda -->
-    <div class="row mb-4" *ngIf="showVendaForm">
+    <div class="row mb-4" *ngIf="showVendaForm && authService.canManageSales()">
       <div class="col-12">
         <div class="card card-custom shadow-custom slide-up">
           <div class="card-header bg-gradient-primary text-white">
@@ -201,9 +202,9 @@
                         <p class="mb-1"><strong>{{ clienteAtual!.nome }}</strong></p>
                         <small class="text-muted">
                           {{ clienteAtual!.email }} | {{ clienteAtual!.telefone }} 
-                          <span class="badge bg-{{ clienteAtual!.categoria === 'Diamante' ? 'primary' : 
-                                                   clienteAtual!.categoria === 'Ouro' ? 'warning' : 
-                                                   clienteAtual!.categoria === 'Prata' ? 'secondary' : 'dark' }} ms-2">
+                          <span class="badge bg-{{ clienteAtual!.categoria === 'DIAMANTE' ? 'primary' : 
+                                                   clienteAtual!.categoria === 'OURO' ? 'warning' : 
+                                                   clienteAtual!.categoria === 'PRATA' ? 'secondary' : 'dark' }} ms-2">
                             {{ clienteAtual!.categoria }}
                           </span>
                           <span class="badge bg-info ms-1">{{ clienteAtual!.pontos }} pontos</span>
@@ -273,15 +274,17 @@
                   <label class="form-label fw-semibold">Evento/Motivo</label>
                   <select 
                     class="form-select form-control-custom"
-                    formControlName="evento">
+                    formControlName="evento"
+                    (change)="onEventoChange()">
                     <option value="">Venda regular</option>
-                    <option *ngFor="let evento of eventos" [value]="evento.nome">
+                    <option *ngFor="let evento of eventosAtivos" [value]="evento.id">
                       {{ evento.nome }}
+                      <span *ngIf="evento.descontoPercentual"> - Desconto: {{ evento.descontoPercentual }}%</span>
                     </option>
                   </select>
                   <small class="text-muted">
                     <i class="bi bi-calendar-event me-1"></i>
-                    Associe a venda a um evento específico
+                    Associe a venda a um evento específico e aplique desconto automaticamente
                   </small>
                 </div>
               </div>
@@ -353,37 +356,35 @@
                           <input 
                             type="text" 
                             class="form-control form-control-sm"
-                            placeholder="Digite o nome do produto..."
-                            [value]="getProdutoNome(i)"
+                            placeholder="Clique aqui ou digite para buscar produto..."
+                            [formControlName]="'produtoNome'"
                             (input)="onProdutoSearch(i, $event)"
                             (focus)="onProdutoFocus(i)"
+                            (click)="onProdutoClick(i)"
                             (blur)="onProdutoBlur(i)"
                             autocomplete="off">
                           
                           <!-- Dropdown de produtos filtrados -->
                           <div 
                             class="dropdown-menu w-100" 
-                            [class.show]="showDropdown[i] && getFilteredProdutos(i).length > 0"
+                            [class.show]="showDropdown[i] === true && getFilteredProdutos(i).length > 0"
+                            [style.display]="showDropdown[i] === true && getFilteredProdutos(i).length > 0 ? 'block' : 'none'"
+                            [style.visibility]="showDropdown[i] === true ? 'visible' : 'hidden'"
                             style="max-height: 200px; overflow-y: auto; z-index: 1050;">
                             <button 
                               type="button"
                               class="dropdown-item d-flex justify-content-between align-items-center"
                               *ngFor="let produto of getFilteredProdutos(i)"
+                              (click)="selectProduto(i, produto)"
                               (mousedown)="selectProduto(i, produto)">
                               <div class="flex-grow-1">
                                 <div class="fw-medium">{{ produto.nome }}</div>
                                 <small class="text-muted">
-                                  {{ produto.categoria }} • {{ formatarMoeda(produto.preco) }}
+                                  {{ produto.departamento }} • {{ formatarMoeda(produto.preco) }}
                                 </small>
                               </div>
                               <div class="d-flex align-items-center gap-2">
-                                <small class="text-muted">Est:</small>
-                                <span class="badge" 
-                                      [class.bg-success]="produto.quantidade > produto.quantidadeMinima"
-                                      [class.bg-warning]="produto.quantidade <= produto.quantidadeMinima && produto.quantidade > 0"
-                                      [class.bg-danger]="produto.quantidade === 0">
-                                  {{ produto.quantidade }}
-                                </span>
+                                <!-- SEÇÃO REMOVIDA: Estoque será gerenciado na área específica -->
                               </div>
                             </button>
                             <div *ngIf="getFilteredProdutos(i).length === 0 && produtoSearchTerms[i] && produtoSearchTerms[i].trim() !== ''" 
@@ -396,6 +397,29 @@
                         
                         <!-- Campo hidden para o ID do produto -->
                         <input type="hidden" formControlName="produtoId">
+                      </div>
+
+                      <!-- Tamanho (quando disponível) -->
+                      <div class="col-12 col-md-2" *ngIf="produtoTemTamanhos(i)">
+                        <label class="form-label fw-semibold small">Tamanho *</label>
+                        <select 
+                          class="form-select form-select-sm"
+                          formControlName="tamanhoSelecionado"
+                          (change)="onTamanhoChange(i)"
+                          [class.is-invalid]="precisaSelecionarTamanho(i)">
+                          <option value="">Selecione...</option>
+                          <option 
+                            *ngFor="let tamanho of getTamanhosDisponiveis(i)" 
+                            [value]="tamanho.id"
+                            [disabled]="(tamanho.estoque || 0) <= 0">
+                            {{ tamanho.tamanho || tamanho.nome }} 
+                            <span *ngIf="(tamanho.estoque || 0) > 0">({{ tamanho.estoque || tamanho.quantidade }} unid.)</span>
+                            <span *ngIf="(tamanho.estoque || 0) <= 0">(Sem estoque)</span>
+                          </option>
+                        </select>
+                        <div class="invalid-feedback small" *ngIf="precisaSelecionarTamanho(i)">
+                          Selecione um tamanho disponível
+                        </div>
                       </div>
 
                       <!-- Quantidade -->
@@ -452,6 +476,7 @@
                             min="0"
                             max="100"
                             step="0.01"
+                            formControlName="percentualDesconto"
                             (input)="aplicarDescontoPorcentual(i, $event)">
                           <span class="input-group-text">%</span>
                         </div>
@@ -463,7 +488,7 @@
                         <input 
                           type="text" 
                           class="form-control form-control-sm bg-success text-white"
-                          [value]="formatarMoeda(calcularTotalItem(i))"
+                          [value]="formatarMoeda(getTotalCalculado(i))"
                           readonly>
                       </div>
 
@@ -574,7 +599,7 @@
                     </div>
                     
                     <div class="col-6">
-                      <label class="form-label fw-semibold">Desconto (%)</label>
+                      <label class="form-label fw-semibold">Desconto Final (%)</label>
                       <div class="input-group">
                         <input 
                           type="number" 
@@ -591,7 +616,7 @@
                       <div class="invalid-feedback">
                         {{ getErrorMessage('percentualDesconto') }}
                       </div>
-                      <small class="text-muted">Digite apenas o número (ex: 1 para 1%)</small>
+                      <small class="text-muted">Desconto geral aplicado sobre toda a venda (ex: 10 para 10%)</small>
                     </div>
                   </div>
                 </div>
@@ -606,9 +631,28 @@
                       <span>Subtotal (c/ desc. itens):</span>
                       <span class="fw-semibold text-info">{{ formatarMoeda(getSubtotalComDescontoItens()) }}</span>
                     </div>
-                    <div class="d-flex justify-content-between mb-2" *ngIf="vendaForm.get('desconto')?.value > 0">
-                      <span>Desconto geral:</span>
-                      <span class="text-danger">- {{ formatarMoeda(vendaForm.get('desconto')?.value) }}</span>
+                    <!-- Desconto por Item -->
+                    <div class="d-flex justify-content-between mb-2" *ngIf="getTotalDescontoIndividualSeguro() > 0">
+                      <span>Desconto por Item:</span>
+                      <span class="discount-value">- {{ formatarMoeda(getTotalDescontoIndividualSeguro()) }}</span>
+                    </div>
+                    
+                    <!-- Desconto de Evento -->
+                    <div class="d-flex justify-content-between mb-2" *ngIf="eventoSelecionado && eventoSelecionado.descontoPercentual && eventoSelecionado.descontoPercentual > 0">
+                      <span>Desconto Evento ({{ eventoSelecionado.descontoPercentual }}%):</span>
+                      <span class="discount-value">- {{ formatarMoeda(getDescontoEventoSeguro()) }}</span>
+                    </div>
+                    
+                    <!-- Desconto Final (quando percentualDesconto > 0) -->
+                    <div class="d-flex justify-content-between mb-2" *ngIf="vendaForm.get('percentualDesconto')?.value > 0">
+                      <span>Desconto Final ({{ vendaForm.get('percentualDesconto')?.value }}%):</span>
+                      <span class="discount-value">- {{ formatarMoeda(getDescontoGeralPercentualSeguro()) }}</span>
+                    </div>
+                    
+                    <!-- Total de Descontos -->
+                    <div class="d-flex justify-content-between mb-2 discount-section" *ngIf="getTotalDescontosParaExibicao() > 0">
+                      <span class="fw-semibold">Total de Descontos:</span>
+                      <span class="discount-value fw-bold">- {{ formatarMoeda(getTotalDescontosParaExibicao()) }}</span>
                     </div>
                     <hr class="my-2">
                     <div class="d-flex justify-content-between">
@@ -846,22 +890,22 @@
                     <td class="fw-bold text-warning">#{{ venda.id }}</td>
                     <td class="small">{{ formatarData(venda.dataVenda) }}</td>
                     <td>
-                      <div class="fw-semibold">{{ venda.clienteNome }}</div>
-                      <div class="small text-muted" *ngIf="venda.clienteEmail">{{ venda.clienteEmail }}</div>
+                      <div class="fw-semibold">{{ venda.nomeCliente }}</div>
+                      <div class="small text-muted" *ngIf="venda.emailCliente">{{ venda.emailCliente }}</div>
                     </td>
                     <td>
-                      <span *ngIf="venda.evento" class="badge bg-info text-white">
+                      <span *ngIf="venda.eventoNome" class="badge bg-info text-white">
                         <i class="bi bi-calendar-event me-1"></i>
-                        {{ venda.evento }}
+                        {{ venda.eventoNome }}
                       </span>
-                      <span *ngIf="!venda.evento" class="text-muted small">
+                      <span *ngIf="!venda.eventoNome" class="text-muted small">
                         <i class="bi bi-dash"></i> Venda regular
                       </span>
                     </td>
                     <td>
-                      <span class="badge bg-light text-dark">{{ venda.itens.length }} item(s)</span>
+                                            <span class="badge bg-light text-dark">{{ (venda.itens.length || 0) }} item(s)</span>
                     </td>
-                    <td class="fw-bold text-success">{{ formatarMoeda(venda.total) }}</td>
+                    <td class="fw-bold text-success">{{ formatarMoeda(venda.valorTotal || venda.total || venda.valorTotal) }}</td>
                     <td class="small">{{ getFormaPagamentoText(venda.formaPagamento) }}</td>
                     <td>
                       <span [class]="'badge ' + getStatusBadgeClass(venda.status)">
@@ -893,6 +937,21 @@
                           title="Imprimir"
                           (click)="imprimirVenda(venda)">
                           <i class="bi bi-printer"></i>
+                        </button>
+                        <!-- Botões de Devolução e Troca -->
+                        <button 
+                          *ngIf="venda.status === 'CONFIRMADA' || venda.status === 'ENTREGUE'"
+                          class="btn btn-outline-danger" 
+                          title="Processar Devolução"
+                          (click)="abrirModalDevolucao(venda)">
+                          <i class="bi bi-arrow-return-left"></i>
+                        </button>
+                        <button 
+                          *ngIf="venda.status === 'CONFIRMADA' || venda.status === 'ENTREGUE'"
+                          class="btn btn-outline-warning" 
+                          title="Processar Troca"
+                          (click)="abrirModalTroca(venda)">
+                          <i class="bi bi-arrow-left-right"></i>
                         </button>
                       </div>
                     </td>
@@ -1162,6 +1221,180 @@
   </div>
 </div>
 
+<!-- Modal de Devolução -->
+<div class="modal fade" [class.show]="showModalDevolucao" [style.display]="showModalDevolucao ? 'block' : 'none'" 
+     *ngIf="showModalDevolucao" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-arrow-return-left me-2"></i>
+          Processar Devolução - Venda #{{ vendaSelecionada?.id }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="fecharModalDevolucao()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="devolucaoForm" novalidate>
+          
+          <!-- Informações da Venda -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Informações da Venda
+              </h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <strong>Cliente:</strong> {{ vendaSelecionada?.nomeCliente }}
+                </div>
+                <div class="col-md-6">
+                  <strong>Total:</strong> {{ formatarMoeda(vendaSelecionada?.valorTotal || 0) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tipo de Devolução -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Tipo de Devolução *</label>
+              <select class="form-select" formControlName="tipoDevolucao" required>
+                <option value="">Selecione o tipo</option>
+                <option value="DEVOLUCAO_SIMPLES">Devolução Simples</option>
+                <option value="TROCA_POR_DEFEITO">Troca por Defeito</option>
+                <option value="TROCA_POR_TAMANHO">Troca por Tamanho</option>
+                <option value="PRODUTO_INCORRETO">Produto Incorreto</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Motivo -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Motivo da Devolução *</label>
+              <textarea class="form-control" formControlName="motivo" rows="3" 
+                        placeholder="Descreva o motivo da devolução..." required></textarea>
+            </div>
+          </div>
+
+          <!-- Observações -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Observações</label>
+              <textarea class="form-control" formControlName="observacoes" rows="2" 
+                        placeholder="Observações adicionais (opcional)"></textarea>
+            </div>
+          </div>
+
+          <!-- Seleção de Itens -->
+          <div class="card">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">
+                <i class="bi bi-list-check me-2"></i>
+                Selecionar Itens para Devolução
+              </h6>
+            </div>
+            <div class="card-body">
+              <div *ngFor="let item of vendaSelecionada?.itens" class="border rounded p-3 mb-2">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" 
+                         [id]="'item-' + item.id"
+                         [checked]="isItemSelecionado(item.id)"
+                         (change)="toggleItemDevolucao(item, $event)">
+                  <label class="form-check-label fw-semibold" [for]="'item-' + item.id">
+                    {{ item.nomeProduto }}
+                    <span *ngIf="item.tamanho" class="badge bg-secondary ms-2">{{ item.tamanho }}</span>
+                  </label>
+                </div>
+                
+                <div *ngIf="isItemSelecionado(item.id)" class="mt-2">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <label class="form-label">Quantidade</label>
+                      <input type="number" class="form-control" 
+                             [value]="getQuantidadeDevolucao(item.id)"
+                             (input)="setQuantidadeDevolucao(item.id, $event)"
+                             [max]="item.quantidade" min="1">
+                      <small class="text-muted">Máx: {{ item.quantidade }}</small>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Status do Produto</label>
+                      <select class="form-select" 
+                              [value]="getStatusQualidade(item.id)"
+                              (change)="setStatusQualidade(item.id, $event)">
+                        <option value="NORMAL">Normal</option>
+                        <option value="DEFEITUOSO">Defeituoso</option>
+                        <option value="INDISPONIVEL">Indisponível</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4" *ngIf="getStatusQualidade(item.id) === 'DEFEITUOSO'">
+                      <label class="form-label">Desconto (%)</label>
+                      <input type="number" class="form-control" 
+                             [value]="getDescontoItem(item.id)"
+                             (input)="setDescontoItem(item.id, $event)"
+                             min="0" max="100" placeholder="30">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="fecharModalDevolucao()">
+          <i class="bi bi-x-circle me-2"></i>
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-danger" 
+                (click)="processarDevolucao()"
+                [disabled]="devolucaoForm.invalid || !temItensSelecionados()">
+          <i class="bi bi-check-circle me-2"></i>
+          Processar Devolução
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Troca -->
+<div class="modal fade" [class.show]="showModalTroca" [style.display]="showModalTroca ? 'block' : 'none'" 
+     *ngIf="showModalTroca" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title">
+          <i class="bi bi-arrow-left-right me-2"></i>
+          Processar Troca - Venda #{{ vendaSelecionada?.id }}
+        </h5>
+        <button type="button" class="btn-close" (click)="fecharModalTroca()"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Troca:</strong> O sistema processará a devolução do item original e permitirá a seleção de um novo produto.
+        </div>
+        
+        <!-- Usar o mesmo formulário da devolução -->
+        <div class="text-center">
+          <p>Funcionalidade de troca será implementada em breve.</p>
+          <p class="text-muted">Por enquanto, utilize a devolução e depois faça uma nova venda.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="fecharModalTroca()">
+          <i class="bi bi-x-circle me-2"></i>
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Backdrop do Modal -->
-<div class="modal-backdrop fade" [class.show]="showCadastroCliente" 
-     *ngIf="showCadastroCliente" (click)="fecharCadastroCliente()"></div>
+<div class="modal-backdrop fade" [class.show]="showCadastroCliente || showModalDevolucao || showModalTroca" 
+     *ngIf="showCadastroCliente || showModalDevolucao || showModalTroca" 
+     (click)="fecharTodosModais()"></div>

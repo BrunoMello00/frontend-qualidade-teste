@@ -23,6 +23,31 @@
 }
 
 /* ===================================
+   CARDS CLICÁVEIS DOS PRODUTOS
+   =================================== */
+
+.produto-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.produto-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  border-color: #ff6b35;
+}
+
+.produto-card:hover .card-title {
+  color: #ff6b35 !important;
+}
+
+.produto-card:focus {
+  outline: none;
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+}
+
+/* ===================================
    ANIMAÇÕES
    =================================== */
 

@@ -1,0 +1,956 @@
+<div class="container-fluid">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">
+          <i class="fas fa-star me-2"></i>
+          Sistema de Pontuação
+        </h2>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                Total de Clientes
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.totalClientes }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-users fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                Pontos Ativos
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.totalPontosAtivos | number }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-star fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                Total de Resgates
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.totalResgates }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-gift fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-3">
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                Média por Cliente
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.mediaPontosCliente }} pts
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensagens -->
+  <div *ngIf="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="fas fa-check-circle me-2"></i>
+    {{ successMessage }}
+    <button type="button" class="btn-close" (click)="clearMessages()"></button>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    {{ errorMessage }}
+    <button type="button" class="btn-close" (click)="clearMessages()"></button>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Carregando...</span>
+    </div>
+    <p class="mt-2">Carregando dados do sistema de pontuação...</p>
+  </div>
+
+  <!-- Conteúdo Principal -->
+  <div *ngIf="!isLoading">
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" 
+                [class.active]="activeTab === 'clientes'"
+                (click)="setActiveTab('clientes')"
+                type="button">
+          <i class="fas fa-users me-2"></i>
+          Clientes
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" 
+                [class.active]="activeTab === 'categorias'"
+                (click)="setActiveTab('categorias')"
+                type="button">
+          <i class="fas fa-layer-group me-2"></i>
+          Categorias
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" 
+                [class.active]="activeTab === 'recompensas'"
+                (click)="setActiveTab('recompensas')"
+                type="button">
+          <i class="fas fa-gift me-2"></i>
+          Recompensas
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" 
+                [class.active]="activeTab === 'historico'"
+                (click)="setActiveTab('historico')"
+                type="button">
+          <i class="fas fa-history me-2"></i>
+          Histórico
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Content: Clientes -->
+    <div *ngIf="activeTab === 'clientes'">
+      <!-- Filtros Clientes -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="searchClientes" class="form-label">Buscar clientes</label>
+                  <div class="input-group">
+                    <span class="input-group-text" [class.bg-warning]="isFilterActive('search')">
+                      <i class="fas fa-search" [class.text-white]="isFilterActive('search')"></i>
+                    </span>
+                    <input type="text" 
+                           class="form-control" 
+                           id="searchClientes"
+                           placeholder="Nome ou email..."
+                           [(ngModel)]="searchTerm"
+                           [class.border-warning]="isFilterActive('search')">
+                  </div>
+                </div>
+                
+                <div class="col-md-3">
+                  <label for="nivelFilter" class="form-label">Nível</label>
+                  <select class="form-select" 
+                          id="nivelFilter" 
+                          [(ngModel)]="selectedNivel"
+                          [class.border-warning]="isFilterActive('nivel')"
+                          [class.bg-light]="isFilterActive('nivel')">
+                    <option value="">Todos os níveis</option>
+                    <option *ngFor="let nivel of niveis" [value]="nivel">{{ nivel }}</option>
+                  </select>
+                </div>
+                
+                <div class="col-md-3 d-flex align-items-end">
+                  <button type="button" 
+                          class="btn btn-outline-secondary w-100" 
+                          [class.btn-warning]="hasActiveFilters()"
+                          [class.text-white]="hasActiveFilters()"
+                          (click)="limparFiltros()">
+                    <i class="fas fa-times me-2"></i>
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+
+              <!-- Indicador de Filtros Ativos - Clientes -->
+              <div *ngIf="hasActiveFilters()" class="row mt-3">
+                <div class="col-12">
+                  <div class="alert alert-warning d-flex align-items-center mb-0">
+                    <i class="fas fa-filter me-2"></i>
+                    <strong>Filtros ativos:</strong>
+                    <span *ngIf="searchTerm" class="ms-2 badge bg-secondary">Busca: "{{ searchTerm }}"</span>
+                    <span *ngIf="selectedNivel" class="ms-2 badge bg-secondary">Nível: {{ selectedNivel }}</span>
+                    <button type="button" class="btn btn-sm btn-outline-dark ms-auto" (click)="limparFiltros()">
+                      <i class="fas fa-times me-1"></i>Limpar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Clientes -->
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Clientes por Pontuação</h5>
+            </div>
+            <div class="card-body">
+              <div class="row g-4">
+                <div class="col-lg-6" *ngFor="let cliente of getFilteredClientes()">
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                          <h6 class="mb-1">{{ cliente.nome }}</h6>
+                          <small class="text-muted">{{ cliente.email }}</small>
+                        </div>
+                        <span class="badge" [ngClass]="getNivelColor(cliente.categoriaAtual)">
+                          {{ cliente.categoriaAtual }}
+                        </span>
+                      </div>
+                      
+                      <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <span class="text-sm font-weight-bold">{{ cliente.pontos }} pontos</span>
+                          <span class="text-sm text-muted">
+                            {{ cliente.pontosParaProximaCategoria || 0 }} para {{ cliente.proximaCategoria || 'Máximo' }}
+                          </span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                          <div class="progress-bar bg-primary" 
+                               [style.width.%]="getProgressoNivel(cliente)">
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="d-flex gap-2">
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary"
+                                (click)="openModalPontos(cliente)">
+                          <i class="fas fa-plus me-1"></i>
+                          Adicionar Pontos
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-info">
+                          <i class="fas fa-eye me-1"></i>
+                          Ver Histórico
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Categorias -->
+    <div *ngIf="activeTab === 'categorias'">
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                <i class="fas fa-layer-group me-2"></i>
+                Gestão de Categorias
+              </h5>
+              <button class="btn btn-primary btn-sm" (click)="showModalCategoria = true">
+                <i class="fas fa-plus me-1"></i>
+                Nova Categoria
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Pontos Mínimos</th>
+                      <th>Pontos Máximos</th>
+                      <th>Pontos Iniciais</th>
+                      <th>Cor</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let categoria of categorias">
+                      <td>
+                        <strong>{{ categoria.nome }}</strong>
+                        <br>
+                        <small class="text-muted">{{ categoria.descricao }}</small>
+                      </td>
+                      <td>{{ formatarPontos(categoria.pontosMinimos) }}</td>
+                      <td>
+                        <span *ngIf="categoria.pontosMaximos; else semLimite">
+                          {{ formatarPontos(categoria.pontosMaximos) }}
+                        </span>
+                        <ng-template #semLimite>
+                          <span class="text-muted">Sem limite</span>
+                        </ng-template>
+                      </td>
+                      <td>{{ formatarPontos(categoria.pontosIniciais) }}</td>
+                      <td>
+                        <span class="badge" [style.background-color]="categoria.cor" [style.color]="'white'">
+                          {{ categoria.nome }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge" [class]="categoria.ativo ? 'bg-success' : 'bg-secondary'">
+                          {{ categoria.ativo ? 'Ativo' : 'Inativo' }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="btn-group btn-group-sm">
+                          <button class="btn btn-outline-primary" (click)="editarCategoria(categoria)">
+                            <i class="fas fa-edit"></i>
+                          </button>
+                          <button class="btn btn-outline-danger" 
+                                  (click)="confirmarRemocaoCategoria(categoria)"
+                                  [disabled]="!categoria.ativo">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <div *ngIf="categorias.length === 0" class="text-center py-4">
+                <i class="fas fa-layer-group fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhuma categoria cadastrada</h5>
+                <p class="text-muted">Adicione categorias para organizar o sistema de pontuação</p>
+                <button class="btn btn-primary" (click)="showModalCategoria = true">
+                  <i class="fas fa-plus me-1"></i>
+                  Criar Primeira Categoria
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Recompensas -->
+    <div *ngIf="activeTab === 'recompensas'">
+      <!-- Filtros Recompensas -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="categoriaFilter" class="form-label">Categoria</label>
+                  <select class="form-select" 
+                          id="categoriaFilter" 
+                          [(ngModel)]="selectedCategoria"
+                          [class.border-warning]="isFilterActive('categoria')"
+                          [class.bg-light]="isFilterActive('categoria')">
+                    <option value="">Todas as categorias</option>
+                    <option *ngFor="let categoria of categorias_recompensas" [value]="categoria">{{ categoria }}</option>
+                  </select>
+                </div>
+                
+                <div class="col-md-4 d-flex align-items-end">
+                  <button type="button" class="btn btn-primary w-100" (click)="criarRecompensa()">
+                    <i class="fas fa-plus me-2"></i>
+                    Nova Recompensa
+                  </button>
+                </div>
+                
+                <div class="col-md-4 d-flex align-items-end">
+                  <button type="button" 
+                          class="btn btn-outline-secondary w-100" 
+                          [class.btn-warning]="isFilterActive('categoria')"
+                          [class.text-white]="isFilterActive('categoria')"
+                          (click)="limparFiltros()">
+                    <i class="fas fa-times me-2"></i>
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+
+              <!-- Indicador de Filtros Ativos - Recompensas -->
+              <div *ngIf="isFilterActive('categoria')" class="row mt-3">
+                <div class="col-12">
+                  <div class="alert alert-warning d-flex align-items-center mb-0">
+                    <i class="fas fa-filter me-2"></i>
+                    <strong>Filtros ativos:</strong>
+                    <span *ngIf="selectedCategoria" class="ms-2 badge bg-secondary">Categoria: {{ selectedCategoria }}</span>
+                    <button type="button" class="btn btn-sm btn-outline-dark ms-auto" (click)="limparFiltros()">
+                      <i class="fas fa-times me-1"></i>Limpar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Recompensas -->
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Recompensas Disponíveis</h5>
+            </div>
+            <div class="card-body">
+              <div class="row g-4">
+                <div class="col-lg-4 col-md-6" *ngFor="let recompensa of getFilteredRecompensas()">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex flex-column">
+                      <div class="mb-3">
+                        <span class="badge bg-secondary mb-2">{{ recompensa.categoria }}</span>
+                        <h6 class="card-title">{{ recompensa.nome }}</h6>
+                        <p class="card-text text-muted">{{ recompensa.descricao }}</p>
+                      </div>
+                      
+                      <div class="mt-auto">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                          <span class="h6 text-primary mb-0">
+                            {{ recompensa.pontosNecessarios }} pontos
+                          </span>
+                          <span class="badge" [ngClass]="recompensa.ativo ? 'bg-success' : 'bg-danger'">
+                            {{ recompensa.ativo ? 'Ativa' : 'Inativa' }}
+                          </span>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                          <button type="button" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit me-1"></i>
+                            Editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Content: Histórico -->
+    <div *ngIf="activeTab === 'historico'">
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Histórico de Transações</h5>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Cliente</th>
+                      <th>Tipo</th>
+                      <th>Pontos</th>
+                      <th>Descrição</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let transacao of getRecentTransacoes()">
+                      <td>{{ formatarData(transacao.data) }}</td>
+                      <td>{{ getClienteNome(transacao.clienteId) }}</td>
+                      <td>
+                        <span class="badge" [ngClass]="transacao.tipo === 'GANHO' ? 'bg-success' : 'bg-warning'">
+                          {{ transacao.tipo === 'GANHO' ? 'Ganho' : 'Resgate' }}
+                        </span>
+                      </td>
+                      <td>
+                        <span [ngClass]="transacao.tipo === 'GANHO' ? 'text-success' : 'text-warning'">
+                          {{ transacao.tipo === 'GANHO' ? '+' : '' }}{{ transacao.pontos }}
+                        </span>
+                      </td>
+                      <td>{{ transacao.descricao }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Moderno de Gerenciamento de Pontos -->
+<div class="modal fade" [class.show]="showModalPontos" [style.display]="showModalPontos ? 'block' : 'none'" *ngIf="showModalPontos">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow-lg">
+      <!-- Header com Gradient Laranja -->
+      <div class="modal-header bg-gradient-orange text-white border-0 position-relative overflow-hidden">
+        <div class="position-absolute top-0 end-0 opacity-10">
+          <i class="fas fa-star" style="font-size: 8rem; line-height: 1;"></i>
+        </div>
+        <h4 class="modal-title fw-bold mb-0 position-relative">
+          <div class="icon-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center me-3">
+            <i class="fas fa-star fs-4 text-white"></i>
+          </div>
+          Gerenciar Pontos - {{ clienteSelecionado?.nome }}
+        </h4>
+        <button type="button" class="btn-close btn-close-white position-relative" (click)="closeModalPontos()"></button>
+      </div>
+      
+      <div class="modal-body p-4">
+        <!-- Informações do Cliente -->
+        <div class="section-divider">
+          <div class="section-title">
+            <i class="fas fa-user text-primary me-2"></i>
+            Informações do Cliente
+          </div>
+        </div>
+        
+        <div class="row g-3 mb-4" *ngIf="clienteSelecionado">
+          <div class="col-md-6">
+            <div class="info-card">
+              <div class="info-label">Nome</div>
+              <div class="info-value">{{ clienteSelecionado.nome }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-card">
+              <div class="info-label">Email</div>
+              <div class="info-value">{{ clienteSelecionado.email }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-card">
+              <div class="info-label">Pontos Atuais</div>
+              <div class="info-value text-warning">
+                <i class="fas fa-star me-1"></i>
+                {{ clienteSelecionado.pontos }} pontos
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-card">
+              <div class="info-label">Nível Atual</div>
+              <div class="info-value">
+                <span class="badge" [ngClass]="getNivelColor(clienteSelecionado.categoriaAtual)">
+                  {{ clienteSelecionado.categoriaAtual }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progresso para Próximo Nível -->
+        <div class="progress-section mb-4" *ngIf="clienteSelecionado">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold">Progresso para {{ clienteSelecionado.proximaCategoria || 'Máximo' }}</span>
+            <small class="text-muted">
+              {{ clienteSelecionado.pontosParaProximaCategoria || 0 }} pontos restantes
+            </small>
+          </div>
+          <div class="progress mb-2" style="height: 12px; border-radius: 10px;">
+            <div class="progress-bar bg-gradient-orange" 
+                 [style.width.%]="getProgressoNivel(clienteSelecionado)"
+                 style="border-radius: 10px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Operações de Pontos -->
+        <div class="section-divider">
+          <div class="section-title">
+            <i class="fas fa-cogs text-primary me-2"></i>
+            Operações de Pontos
+          </div>
+        </div>
+        
+        <form [formGroup]="pontosForm" (ngSubmit)="onSubmitPontos()">
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-exchange-alt me-1"></i>
+                Tipo de Operação
+              </label>
+              <select class="form-control form-control-modern" formControlName="tipoOperacao">
+                <option value="ADICIONAR">
+                  <i class="fas fa-plus"></i>
+                  Adicionar Pontos
+                </option>
+                <option value="REMOVER">
+                  <i class="fas fa-minus"></i>
+                  Remover Pontos
+                </option>
+              </select>
+            </div>
+            
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-star me-1"></i>
+                Quantidade de Pontos
+              </label>
+              <input 
+                type="number" 
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('pontos')"
+                formControlName="pontos"
+                min="1"
+                placeholder="Digite a quantidade...">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('pontos')">
+                Quantidade de pontos é obrigatória e deve ser maior que 0
+              </div>
+            </div>
+            
+            <div class="col-12">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-comment me-1"></i>
+                Motivo/Descrição
+              </label>
+              <textarea 
+                class="form-control form-control-modern"
+                [class.is-invalid]="isFieldInvalid('descricao')"
+                formControlName="descricao"
+                rows="3"
+                placeholder="Descreva o motivo da operação..."></textarea>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('descricao')">
+                Descrição é obrigatória
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview da Operação -->
+          <div class="preview-section" *ngIf="pontosForm.get('pontos')?.value && pontosForm.get('tipoOperacao')?.value">
+            <div class="section-divider">
+              <div class="section-title">
+                <i class="fas fa-eye text-primary me-2"></i>
+                Preview da Operação
+              </div>
+            </div>
+            
+            <div class="preview-card">
+              <div class="card border-warning">
+                <div class="card-body">
+                  <div class="row text-center">
+                    <div class="col-md-4">
+                      <div class="preview-item">
+                        <div class="preview-label">Pontos Atuais</div>
+                        <div class="preview-value text-info">
+                          {{ clienteSelecionado?.pontos }} pts
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="preview-item">
+                        <div class="preview-label">Operação</div>
+                        <div class="preview-value" 
+                             [class.text-success]="pontosForm.get('tipoOperacao')?.value === 'ADICIONAR'"
+                             [class.text-danger]="pontosForm.get('tipoOperacao')?.value === 'REMOVER'">
+                          {{ pontosForm.get('tipoOperacao')?.value === 'ADICIONAR' ? '+' : '-' }}
+                          {{ pontosForm.get('pontos')?.value }} pts
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="preview-item">
+                        <div class="preview-label">Total Final</div>
+                        <div class="preview-value text-warning">
+                          {{ calcularPontosFinal() }} pts
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Histórico Recente -->
+        <div class="section-divider">
+          <div class="section-title">
+            <i class="fas fa-history text-primary me-2"></i>
+            Histórico Recente
+          </div>
+        </div>
+        
+        <div class="historico-section">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Pontos</th>
+                  <th>Descrição</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let transacao of getHistoricoCliente(clienteSelecionado?.id)">
+                  <td>{{ formatarData(transacao.data) }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="transacao.tipo === 'GANHO' ? 'bg-success' : 'bg-warning'">
+                      {{ transacao.tipo === 'GANHO' ? 'Ganho' : 'Resgate' }}
+                    </span>
+                  </td>
+                  <td [class.text-success]="transacao.tipo === 'GANHO'" [class.text-warning]="transacao.tipo === 'RESGATE'">
+                    {{ transacao.tipo === 'GANHO' ? '+' : '-' }}{{ transacao.pontos }}
+                  </td>
+                  <td>{{ transacao.descricao }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer bg-light border-0 p-4">
+        <button type="button" class="btn btn-outline-secondary px-4" (click)="closeModalPontos()">
+          <i class="fas fa-times me-1"></i>
+          Cancelar
+        </button>
+        <button 
+          type="button"
+          class="btn btn-gradient-orange px-4"
+          [disabled]="!pontosForm.valid || isSaving"
+          (click)="onSubmitPontos()">
+          <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+          <i *ngIf="!isSaving" class="fas fa-check-circle me-1"></i>
+          <span class="ms-1">
+            {{ isSaving ? 'Processando...' : 'Confirmar Operação' }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Backdrop do modal -->
+<div class="modal-backdrop fade show" *ngIf="showModalPontos" (click)="closeModalPontos()"></div>
+
+<!-- Modal de Gestão de Categorias -->
+<div class="modal fade" [class.show]="showModalCategoria" [style.display]="showModalCategoria ? 'block' : 'none'" *ngIf="showModalCategoria">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <form [formGroup]="categoriaForm" (ngSubmit)="onSubmitCategoria()">
+        <div class="modal-header bg-gradient-primary text-white border-0">
+          <h4 class="modal-title fw-bold mb-0">
+            <i class="fas fa-layer-group me-2"></i>
+            {{ categoriaSelecionada ? 'Editar Categoria' : 'Nova Categoria' }}
+          </h4>
+          <button type="button" class="btn-close btn-close-white" (click)="closeModalCategoria()"></button>
+        </div>
+
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <!-- Nome da Categoria -->
+            <div class="col-12">
+              <label for="nomeCategoria" class="form-label fw-bold">
+                <i class="fas fa-tag me-1"></i>
+                Nome da Categoria *
+              </label>
+              <input type="text" 
+                     class="form-control"
+                     id="nomeCategoria"
+                     formControlName="nome"
+                     placeholder="Ex: Bronze, Prata, Ouro..."
+                     [class.is-invalid]="isFieldInvalid('nome')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('nome')">
+                Nome é obrigatório (mínimo 2 caracteres)
+              </div>
+            </div>
+
+            <!-- Descrição -->
+            <div class="col-12">
+              <label for="descricaoCategoria" class="form-label fw-bold">
+                <i class="fas fa-align-left me-1"></i>
+                Descrição (Opcional)
+              </label>
+              <textarea class="form-control"
+                        id="descricaoCategoria"
+                        formControlName="descricao"
+                        rows="2"
+                        placeholder="Descrição da categoria..."></textarea>
+            </div>
+
+            <!-- Pontos Mínimos e Máximos -->
+            <div class="col-md-6">
+              <label for="pontosMinimos" class="form-label fw-bold">
+                <i class="fas fa-arrow-up me-1"></i>
+                Pontos Mínimos *
+              </label>
+              <input type="number" 
+                     class="form-control"
+                     id="pontosMinimos"
+                     formControlName="pontosMinimos"
+                     min="0"
+                     placeholder="0"
+                     [class.is-invalid]="isFieldInvalid('pontosMinimos')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('pontosMinimos')">
+                Pontos mínimos são obrigatórios
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="pontosMaximos" class="form-label fw-bold">
+                <i class="fas fa-arrow-down me-1"></i>
+                Pontos Máximos (Opcional)
+              </label>
+              <input type="number" 
+                     class="form-control"
+                     id="pontosMaximos"
+                     formControlName="pontosMaximos"
+                     min="0"
+                     placeholder="Deixe vazio para sem limite">
+              <small class="form-text text-muted">
+                Deixe vazio para categoria sem limite superior
+              </small>
+            </div>
+
+            <!-- Pontos Iniciais -->
+            <div class="col-md-6">
+              <label for="pontosIniciais" class="form-label fw-bold">
+                <i class="fas fa-play me-1"></i>
+                Pontos Iniciais *
+              </label>
+              <input type="number" 
+                     class="form-control"
+                     id="pontosIniciais"
+                     formControlName="pontosIniciais"
+                     min="0"
+                     placeholder="0"
+                     [class.is-invalid]="isFieldInvalid('pontosIniciais')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('pontosIniciais')">
+                Pontos iniciais são obrigatórios
+              </div>
+              <small class="form-text text-muted">
+                Pontos que novos clientes recebem ao atingir esta categoria
+              </small>
+            </div>
+
+            <!-- Cor da Categoria -->
+            <div class="col-md-6">
+              <label for="corCategoria" class="form-label fw-bold">
+                <i class="fas fa-palette me-1"></i>
+                Cor da Categoria *
+              </label>
+              <div class="input-group">
+                <input type="color" 
+                       class="form-control form-control-color"
+                       id="corCategoria"
+                       formControlName="cor"
+                       [class.is-invalid]="isFieldInvalid('cor')">
+                <input type="text" 
+                       class="form-control"
+                       formControlName="cor"
+                       placeholder="#007bff"
+                       [class.is-invalid]="isFieldInvalid('cor')">
+              </div>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('cor')">
+                Cor é obrigatória
+              </div>
+            </div>
+
+            <!-- Status -->
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="ativoCategoria"
+                       formControlName="ativo">
+                <label class="form-check-label fw-bold" for="ativoCategoria">
+                  <i class="fas fa-check me-1"></i>
+                  Categoria Ativa
+                </label>
+                <small class="form-text text-muted d-block">
+                  Categorias inativas não podem ser atribuídas a novos clientes
+                </small>
+              </div>
+            </div>
+
+            <!-- Preview da Categoria -->
+            <div class="col-12" *ngIf="categoriaForm.get('nome')?.value">
+              <div class="border rounded p-3 bg-light">
+                <label class="form-label fw-bold mb-2">
+                  <i class="fas fa-eye me-1"></i>
+                  Preview da Categoria
+                </label>
+                <div class="d-flex align-items-center">
+                  <span class="badge me-2" 
+                        [style.background-color]="categoriaForm.get('cor')?.value"
+                        [style.color]="'white'">
+                    {{ categoriaForm.get('nome')?.value }}
+                  </span>
+                  <span class="small text-muted">
+                    {{ categoriaForm.get('pontosMinimos')?.value || 0 }} 
+                    <span *ngIf="categoriaForm.get('pontosMaximos')?.value"> 
+                      - {{ categoriaForm.get('pontosMaximos')?.value }}
+                    </span> 
+                    pontos
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-light border-0 p-4">
+          <button type="button" 
+                  class="btn btn-outline-secondary px-4" 
+                  (click)="closeModalCategoria()"
+                  [disabled]="isSaving">
+            <i class="fas fa-times me-1"></i>
+            Cancelar
+          </button>
+          <button type="submit" 
+                  class="btn btn-primary px-4"
+                  [disabled]="categoriaForm.invalid || isSaving">
+            <i class="fas fa-spinner fa-spin me-1" *ngIf="isSaving"></i>
+            <i class="fas fa-save me-1" *ngIf="!isSaving"></i>
+            {{ isSaving ? 'Salvando...' : (categoriaSelecionada ? 'Atualizar' : 'Criar') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Backdrop do modal de categoria -->
+<div class="modal-backdrop fade show" *ngIf="showModalCategoria" (click)="closeModalCategoria()"></div>
